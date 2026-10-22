@@ -14,7 +14,7 @@ html.lenis, html.lenis body { height: auto; }
 .lenis.lenis-smooth { scroll-behavior: auto !important; }
 
 #gl { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
-#track { height: 1400vh; }
+#track { height: 3600vh; }
 
 /* varianti: mostra solo il testo della soluzione aperta */
 html[data-variant="a"] .v-b, html[data-variant="b"] .v-a { display: none !important; }

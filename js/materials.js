@@ -96,6 +96,11 @@ export class Materials {
       m = new THREE.MeshStandardMaterial(opts);
     }
     m.side = THREE.DoubleSide;
+    // le superfici arretrano di un soffio nel depth buffer: gli spigoli disegnati
+    // sopra restano netti invece di sfarfallare
+    m.polygonOffset = true;
+    m.polygonOffsetFactor = 1;
+    m.polygonOffsetUnits = 1;
     m.shadowSide = THREE.FrontSide;
     revealSurface(m, { mode });
     this.cache.set(k, m);

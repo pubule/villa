@@ -201,7 +201,9 @@ function cameraAt(t) {
   let i = 0;
   while (i < KEYS.length - 2 && t > KEYS[i + 1].t) i++;
   const k0 = KEYS[i], k1 = KEYS[i + 1];
-  const u = smooth(THREE.MathUtils.clamp((t - k0.t) / (k1.t - k0.t), 0, 1));
+  // la camera si ferma un attimo su ogni inquadratura prima di ripartire
+  const HOLD = 0.22;
+  const u = smooth(THREE.MathUtils.clamp(((t - k0.t) / (k1.t - k0.t) - HOLD) / (1 - HOLD), 0, 1));
   const a = keyPos(k0), b = keyPos(k1);
   const fov = Math.exp(THREE.MathUtils.lerp(Math.log(k0.fov), Math.log(k1.fov), u));
   const pos = new THREE.Vector3(), tgt = new THREE.Vector3();
@@ -242,7 +244,7 @@ function setRoof(p) {
   g.position.y = (1 - p) * (1 - p) * 7;
   for (const m of roofMats) {
     m.opacity = m.userData.baseOpacity * p;
-    m.depthWrite = p > 0.98;
+    m.depthWrite = true;
   }
 }
 
@@ -291,21 +293,29 @@ function applyCaptions(t) {
 }
 
 // ---------------------------------------------------------------- scroll
-const state = { t: 0, shown: 0 };
-const lenis = new Lenis({ lerp: 0.085, wheelMultiplier: 0.9 });
+// come Casa Serra: Lenis con inerzia lunga, poi la camera insegue lo scroll
+// con uno smorzamento esponenziale
+const state = { t: 0, target: 0, shown: 0 };
+const CAM_WEIGHT = 3.6;
+const lenis = new Lenis({ duration: 1.6, easing: (e) => Math.min(1, 1.001 - Math.pow(2, -10 * e)), smoothWheel: true });
 lenis.on('scroll', ScrollTrigger.update);
 gsap.ticker.add((time) => lenis.raf(time * 1000));
 gsap.ticker.lagSmoothing(0);
 gsap.registerPlugin(ScrollTrigger);
-gsap.to(state, {
-  t: 1, ease: 'none',
-  scrollTrigger: { trigger: '#track', start: 'top top', end: 'bottom bottom', scrub: 0.6 },
+ScrollTrigger.create({
+  trigger: '#track', start: 'top top', end: 'bottom bottom',
+  onUpdate: (st) => { state.target = st.progress; },
 });
 
 const scrollToT = (t, immediate = false) => {
   const track = document.getElementById('track');
   const max = track.offsetHeight - innerHeight;
-  lenis.scrollTo(t * max, immediate ? { immediate: true, force: true } : { duration: 2.2 });
+  if (immediate) {
+    lenis.scrollTo(t * max, { immediate: true, force: true });
+    state.target = state.t = t;
+  } else {
+    lenis.scrollTo(t * max, { duration: 3.2, easing: (e) => 1 - Math.pow(1 - e, 4) });
+  }
 };
 document.querySelectorAll('[data-go]').forEach((el) => el.addEventListener('click', (e) => {
   e.preventDefault();
@@ -352,11 +362,17 @@ function resize() {
 addEventListener('resize', resize);
 
 const look = new THREE.Vector3();
-function frame() {
+let last = performance.now();
+function frame(now = performance.now()) {
+  const dt = Math.min(0.1, (now - last) / 1000);
+  last = now;
   if (controls) {
     controls.update();
-    camera.near = 0.05;
+    // piano vicino proporzionato alla distanza: più precisione nel depth buffer
+    camera.near = THREE.MathUtils.clamp(camera.position.distanceTo(controls.target) * 0.02, 0.05, 30);
   } else {
+    state.t += (state.target - state.t) * (1 - Math.exp(-dt * CAM_WEIGHT));
+    if (Math.abs(state.target - state.t) < 1e-5) state.t = state.target;
     const t = state.t;
     applyTimeline(t);
     applyCaptions(t);
@@ -366,7 +382,7 @@ function frame() {
     camera.lookAt(look);
     camera.fov = c.fov;
     const dist = c.pos.distanceTo(c.tgt);
-    camera.near = THREE.MathUtils.clamp((dist - 40) * 0.3, 0.05, 80);
+    camera.near = Math.max(THREE.MathUtils.clamp(dist * 0.02, 0.05, 30), THREE.MathUtils.clamp((dist - 40) * 0.3, 0.05, 80));
   }
   camera.updateProjectionMatrix();
   sky.position.copy(camera.position);
