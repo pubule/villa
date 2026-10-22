@@ -5,6 +5,7 @@ import { revealSurface, revealLines } from './reveal.js';
 // coppi). Le UV sono in metri: "scale" dice quanti metri copre una ripetizione.
 const TEX = {
   stone_wall: 1.7,
+  ashlar_r06a: 1.1,
   plaster001: 2.2,
   travertine009: 1.8,
   tiles143: 2.0,
@@ -19,6 +20,10 @@ const TEX = {
 // materiali di base: texture + tinta + rugosità
 const BASES = {
   stone:   { tex: 'stone_wall', color: '#efe3d2', rough: 1 },
+  // rivestimento a blocchi squadrati (R06A di Abitare in Pietra) per i dettagli
+  ashlar:  { tex: 'ashlar_r06a', color: '#ffffff', rough: 1, nrm: 0.8 },
+  // intonaco esterno bianco burro
+  render:  { tex: 'plaster001', color: '#fde8bd', rough: 1, nrm: 0.7 },
   plaster: { tex: 'plaster001', color: '#fbf7f0', rough: 1, nrm: 0.6 },
   ceiling: { tex: 'plaster001', color: '#fbf7f0', rough: 1, nrm: 0.4, emissive: '#57524a' },
   floor:   { tex: 'travertine009', color: '#ffffff', rough: 0.6, nrm: 0.5 },

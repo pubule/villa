@@ -13,6 +13,10 @@ export const reveal = {
   progress: new Array(MAX_RECTS).fill(0),
   outCenter: new THREE.Vector3(0, 0, 40),
   outProgress: { value: 0 },
+  // 1 finché il piano di taglio attraversa i muri: solo allora le facce
+  // posteriori servono (sono il pieno nero della sezione)
+  cutOn: { value: 1 },
+  capK: { value: 1 },
   paper: new THREE.Color('#f3efe7'),
   ink: new THREE.Color('#24221f'),
 };
@@ -26,6 +30,8 @@ const shared = {
   uOutP: reveal.outProgress,
   uPaper: { value: new THREE.Vector3(0.953, 0.937, 0.906) },
   uInk: { value: new THREE.Vector3(0.141, 0.133, 0.122) },
+  uCutOn: reveal.cutOn,
+  uCapK: reveal.capK,
 };
 
 const GLSL_HEAD = /* glsl */`
@@ -39,6 +45,8 @@ uniform vec3 uPaper;
 uniform vec3 uInk;
 uniform float uMode;   // 0 interno, 1 esterno, 2 entrambi
 uniform float uCap;    // 1: il disegno di questa faccia è inchiostro
+uniform float uCutOn;
+uniform float uCapK;
 float revealAmount(vec3 p) {
   float r = 0.0;
   if (uMode != 1.0) {
@@ -46,13 +54,13 @@ float revealAmount(vec3 p) {
       vec4 R = uRect[i];
       if (p.x > R.x - 0.06 && p.x < R.z + 0.06 && p.z > R.y - 0.06 && p.z < R.w + 0.06) {
         float d = length(p.xz - uCen[i].xy) / uCen[i].z;
-        r = max(r, clamp((uProg[i] * 1.25 - d) / 0.25, 0.0, 1.0));
+        r = max(r, smoothstep(0.0, 1.0, clamp((uProg[i] * 1.4 - d) / 0.4, 0.0, 1.0)));
       }
     }
   }
   if (uMode != 0.0) {
     float d = length(p.xz - uOutC.xy) / uOutC.z;
-    r = max(r, clamp((uOutP * 1.25 - d) / 0.25, 0.0, 1.0));
+    r = max(r, smoothstep(0.0, 1.0, clamp((uOutP * 1.4 - d) / 0.4, 0.0, 1.0)));
   }
   return r;
 }
@@ -83,8 +91,11 @@ export function revealSurface(mat, { mode = 0, cap = 0, sketchShade = 0.08 } = {
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', '#include <common>\n' + GLSL_HEAD)
       .replace('#include <dithering_fragment>', `#include <dithering_fragment>
+  // senza taglio le facce posteriori non si vedono mai: scartarle evita che
+  // combattano con le facce davanti degli oggetti che si toccano
+  if (!gl_FrontFacing && uCutOn < 0.5) discard;
   float rv = revealAmount(vRevW);
-  vec3 drawC = (gl_FrontFacing && uCap < 0.5) ? uPaper : uInk;
+  vec3 drawC = (gl_FrontFacing && uCap < 0.5) ? uPaper : (gl_FrontFacing ? uInk : mix(uPaper, uInk, uCapK));
   float lum = clamp(dot(gl_FragColor.rgb, vec3(0.3, 0.59, 0.11)) * 1.6, 0.0, 1.0);
   vec3 sketch = drawC * (1.0 - ${sketchShade.toFixed(3)} + ${sketchShade.toFixed(3)} * lum);
   if (!gl_FrontFacing) rv = 0.0;

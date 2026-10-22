@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { VARIANTS } from './plans.js';
+import { VARIANTS, H } from './plans.js';
 import { Materials } from './materials.js';
 import { reveal, setupRooms, setRoomProgress } from './reveal.js';
 import { buildHouse } from './house.js';
@@ -148,17 +148,30 @@ function planDistance(fov) {
 }
 
 // chiavi: orbit = (target, distanza, inclinazione, azimut); look = (posizione, punto guardato)
+// pass: punto di passaggio (porte, vetrate), la camera non si ferma
 const walkA = [
   { t: 0.42, pos: [19.5, 1.65, 18.8], tgt: [11.0, 1.4, 15.5], fov: 50 },
-  { t: 0.48, pos: [14.2, 1.62, 15.5], tgt: [6.0, 1.3, 16.4], fov: 58 },
-  { t: 0.545, pos: [9.2, 1.6, 15.75], tgt: [2.5, 1.0, 18.2], fov: 58 },
-  { t: 0.605, pos: [7.2, 1.6, 16.3], tgt: [11.8, 1.15, 19.4], fov: 58 },
-  { t: 0.67, pos: [9.45, 1.6, 20.15], tgt: [9.0, 1.2, 26.5], fov: 62 },
-  { t: 0.735, pos: [5.25, 1.62, 16.6], tgt: [5.25, 1.5, 9.0], fov: 55 },
-  { t: 0.79, pos: [5.25, 1.6, 11.5], tgt: [9.5, 1.3, 10.6], fov: 58 },
-  { t: 0.85, pos: [9.6, 1.65, 12.45], tgt: [6.9, 0.7, 9.6], fov: 72 },
-  { t: 0.905, pos: [8.9, 1.6, 11.42], tgt: [16, 1.3, 11.6], fov: 58 },
-  { t: 0.95, pos: [14.8, 1.7, 11.42], tgt: [20, 1.6, 12.4], fov: 55 },
+  { t: 0.455, pos: [14.2, 1.62, 15.5], tgt: [6.0, 1.3, 16.4], fov: 58 },
+  { t: 0.49, pos: [9.2, 1.6, 15.75], tgt: [2.5, 1.0, 18.2], fov: 58, room: 'soggiorno' },
+  { t: 0.525, pos: [7.2, 1.6, 16.3], tgt: [11.8, 1.15, 19.4], fov: 58, room: 'cucina' },
+  { t: 0.56, pos: [9.75, 1.6, 21.7], tgt: [7.6, 1.1, 26.5], fov: 62 },
+  { t: 0.575, pos: [8.6, 1.6, 22.6], tgt: [3.0, 1.2, 22.4], fov: 62, pass: true },
+  { t: 0.595, pos: [4.2, 1.6, 22.1], tgt: [0.4, 0.9, 21.6], fov: 66, room: 'deposito' },
+  { t: 0.615, pos: [3.0, 1.62, 19.4], tgt: [5.0, 1.5, 15.0], fov: 60, pass: true },
+  { t: 0.64, pos: [5.25, 1.62, 16.4], tgt: [5.25, 1.5, 9.0], fov: 55, room: 'disimpegno' },
+  { t: 0.67, pos: [5.25, 1.6, 13.7], tgt: [9.6, 1.0, 13.9], fov: 72, room: 'bagno2' },
+  { t: 0.70, pos: [5.2, 1.6, 12.0], tgt: [1.0, 0.9, 13.2], fov: 72, room: 'camera' },
+  { t: 0.73, pos: [5.2, 1.6, 9.55], tgt: [0.9, 1.0, 9.4], fov: 72, room: 'bagno' },
+  { t: 0.76, pos: [5.3, 1.6, 7.6], tgt: [1.0, 1.1, 5.9], fov: 68, room: 'lavanderia' },
+  { t: 0.79, pos: [1.9, 1.6, 5.4], tgt: [1.9, 0.9, 1.0], fov: 66, room: 'cantina' },
+  { t: 0.81, pos: [5.3, 1.6, 7.9], tgt: [5.3, 1.5, 12.0], fov: 60, pass: true },
+  { t: 0.825, pos: [5.3, 1.6, 11.4], tgt: [9.5, 1.3, 10.6], fov: 60, pass: true },
+  { t: 0.845, pos: [9.6, 1.65, 12.45], tgt: [6.9, 0.7, 9.6], fov: 72, room: 'padronale' },
+  { t: 0.875, pos: [9.6, 1.6, 8.0], tgt: [6.0, 1.0, 7.9], fov: 74, room: 'guardaroba' },
+  { t: 0.90, pos: [8.9, 1.6, 11.42], tgt: [16, 1.3, 11.6], fov: 58 },
+  { t: 0.915, pos: [11.4, 1.6, 10.8], tgt: [11.5, 1.3, 5.0], fov: 58, pass: true },
+  { t: 0.93, pos: [11.55, 1.6, 8.4], tgt: [11.5, 1.2, 4.0], fov: 60 },
+  { t: 0.955, pos: [11.6, 1.6, 5.7], tgt: [5.0, 0.8, 2.4], fov: 70, room: 'garage' },
 ];
 const KEYS = [
   { t: 0.0, orbit: { tgt: PLAN_T.toArray(), r: 'plan', pol: 0.002, az: 0 }, fov: 5.5 },
@@ -202,7 +215,7 @@ function cameraAt(t) {
   while (i < KEYS.length - 2 && t > KEYS[i + 1].t) i++;
   const k0 = KEYS[i], k1 = KEYS[i + 1];
   // la camera si ferma un attimo su ogni inquadratura prima di ripartire
-  const HOLD = 0.22;
+  const HOLD = k0.pass ? 0 : 0.22;
   const u = smooth(THREE.MathUtils.clamp(((t - k0.t) / (k1.t - k0.t) - HOLD) / (1 - HOLD), 0, 1));
   const a = keyPos(k0), b = keyPos(k1);
   const fov = Math.exp(THREE.MathUtils.lerp(Math.log(k0.fov), Math.log(k1.fov), u));
@@ -232,8 +245,9 @@ function cameraAt(t) {
 const clamp01 = (x) => Math.min(1, Math.max(0, x));
 const win = (t, a, b) => clamp01((t - a) / (b - a));
 const ROOM_T = {
-  soggiorno: [0.49, 0.56], cucina: [0.49, 0.57], disimpegno: [0.70, 0.76], bagno2: [0.74, 0.80],
-  padronale: [0.775, 0.84], guardaroba: [0.82, 0.88],
+  soggiorno: [0.44, 0.50], cucina: [0.44, 0.51], deposito: [0.565, 0.60], disimpegno: [0.615, 0.65],
+  bagno2: [0.645, 0.68], camera: [0.675, 0.71], bagno: [0.705, 0.74], lavanderia: [0.735, 0.77],
+  cantina: [0.765, 0.80], padronale: [0.82, 0.855], guardaroba: [0.85, 0.885], garage: [0.915, 0.955],
 };
 const DEFAULT_T = [0.93, 0.995];
 
@@ -252,7 +266,9 @@ function applyTimeline(t) {
   // muri che crescono, poi il tetto
   let h = 1.2;
   h += smooth(win(t, 0.03, 0.15)) * (2.97 - 1.2);
-  // poi il taglio sparisce: sopra i muri c'è solo il gruppo delle coperture
+  // il pieno nero della sezione sbiadisce in carta, poi il taglio sparisce:
+  // sopra i muri c'è solo il gruppo delle coperture
+  reveal.capK.value = 1 - smooth(win(t, 0.24, 0.30));
   h += win(t, 0.30, 0.31) * 60;
   clip.constant = h;
   setRoof(smooth(win(t, 0.31, 0.40)));
@@ -279,7 +295,7 @@ const caps = [...document.querySelectorAll('[data-in]')];
 function applyCaptions(t) {
   for (const el of caps) {
     const a = +el.dataset.in, b = +el.dataset.out;
-    const fade = 0.012;
+    const fade = 0.02;
     let o = Math.min(clamp01((t - a) / fade + (a <= 0 ? 1 : 0)), clamp01((b - t) / fade + (b >= 1 ? 1 : 0)));
     el.style.opacity = o;
     el.style.transform = `translateY(${(1 - o) * 14}px)`;
@@ -345,11 +361,42 @@ function setExplore(on) {
   }
 }
 exploreBtns.forEach((b) => b.addEventListener('click', () => setExplore(!document.body.classList.contains('exploring'))));
+// esplora: salto diretto in ogni locale, con le stesse inquadrature del racconto
+const roomJump = document.getElementById('roomJump');
+const OVERVIEW = { pos: [6.5 + 30, 34, 13.5 + 30], tgt: [6.5, 1, 13.5], fov: 40 };
+function flyTo(v) {
+  if (!controls) return;
+  const p = new THREE.Vector3(...v.pos), q = new THREE.Vector3(...v.tgt);
+  // dentro una stanza il target sta a un metro e mezzo: si ruota sul posto
+  if (v.room) q.sub(p).setLength(1.5).add(p);
+  gsap.to(camera.position, { x: p.x, y: p.y, z: p.z, duration: 2.4, ease: 'power3.inOut' });
+  gsap.to(controls.target, { x: q.x, y: q.y, z: q.z, duration: 2.4, ease: 'power3.inOut' });
+  gsap.to(camera, { fov: v.fov, duration: 2.4, ease: 'power3.inOut' });
+  controls.minDistance = v.room ? 0.3 : 2;
+}
+if (roomJump) {
+  const add = (label, v) => {
+    const b = document.createElement('button');
+    b.className = 'chip';
+    b.textContent = label;
+    b.addEventListener('click', () => flyTo(v));
+    roomJump.appendChild(b);
+  };
+  add('Vista d’insieme', OVERVIEW);
+  for (const k of walkA) {
+    if (!k.room) continue;
+    const r = variant.rooms.find((x) => x.id === k.room);
+    if (r) add(r.name, k);
+  }
+  add('Portico', { pos: [10.4, 1.6, 25.2], tgt: [4.0, 1.0, 22.0], fov: 66, room: 'portico' });
+}
+
 const roofBtn = document.getElementById('roofToggle');
 roofBtn?.addEventListener('click', () => {
   const off = roofBtn.classList.toggle('off');
   roofBtn.textContent = off ? 'Rimetti il tetto' : 'Togli il tetto';
   clip.constant = off ? 2.97 : 61;
+  reveal.capK.value = off ? 1 : 0;
   setRoof(off ? 0 : 1);
 });
 
@@ -384,6 +431,7 @@ function frame(now = performance.now()) {
     const dist = c.pos.distanceTo(c.tgt);
     camera.near = Math.max(THREE.MathUtils.clamp(dist * 0.02, 0.05, 30), THREE.MathUtils.clamp((dist - 40) * 0.3, 0.05, 80));
   }
+  reveal.cutOn.value = clip.constant < H + 0.5 ? 1 : 0;
   camera.updateProjectionMatrix();
   sky.position.copy(camera.position);
   renderer.render(scene, camera);
