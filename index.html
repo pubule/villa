@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Casa Bogoni · dalla pianta alla casa</title>
+  <meta name="description" content="Le due planimetrie proposte per Casa Bogoni (3-A e 3-B) diventano un modello 3D da percorrere: dalla pianta in sezione ai muri in pietra, stanza per stanza." />
+  <meta name="theme-color" content="#f3efe7" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23f3efe7'/%3E%3Cpath d='M7 7h18v18H7z' fill='none' stroke='%2324221f' stroke-width='3'/%3E%3Cpath d='M7 17h10v8' fill='none' stroke='%2324221f' stroke-width='3'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
+</head>
+<body>
+  <canvas id="gl" aria-hidden="true"></canvas>
+
+  <div class="loader" id="loader">
+    <p class="loader__place">Casa Bogoni<br /><span class="v-a">Soluzione 3-A</span><span class="v-b">Soluzione 3-B</span></p>
+    <div class="loader__story">
+      <p>Ogni casa comincia da una pianta.</p>
+      <p>Questa è la tua, stanza per stanza.</p>
+    </div>
+    <div class="loader__bar"><span>Disegno</span><i><b id="loadFill"></b></i><span id="loadPct">0%</span></div>
+    <p class="loader__note">Funziona meglio su un computer</p>
+  </div>
+
+  <header class="topbar">
+    <a class="mark" href="#" data-go="0">Casa Bogoni</a>
+    <nav class="switch" aria-label="Soluzione">
+      <a href="#a" class="sw-a">3-A</a>
+      <a href="#b" class="sw-b">3-B</a>
+    </nav>
+    <button class="pill" data-explore>Esplora</button>
+  </header>
+
+  <div class="progress"><i id="bar"></i></div>
+
+  <ol class="chapters" aria-label="Percorso">
+    <li data-t="0"><a href="#" data-go="0">Pianta</a></li>
+    <li data-t="0.16"><a href="#" data-go="0.3">Volume</a></li>
+    <li data-t="0.4"><a href="#" data-go="0.48">Ingresso</a></li>
+    <li data-t="0.52"><a href="#" data-go="0.545">Soggiorno</a></li>
+    <li data-t="0.59"><a href="#" data-go="0.605">Cucina</a></li>
+    <li data-t="0.655"><a href="#" data-go="0.67">Portico</a></li>
+    <li data-t="0.72"><a href="#" data-go="0.735">Notte</a></li>
+    <li data-t="0.78"><a href="#" data-go="0.85">Camera</a></li>
+    <li data-t="0.93"><a href="#" data-go="1">Casa</a></li>
+  </ol>
+
+  <div class="captions">
+    <section class="cap cap--hero" data-in="0" data-out="0.055">
+      <p class="kicker">Casa Bogoni <span>·</span> <span class="v-a">Soluzione 3-A</span><span class="v-b">Soluzione 3-B</span> <span>·</span> Pianta piano terra</p>
+      <h1>Ogni casa comincia<br />da <em>una pianta.</em></h1>
+      <p>Questa non è un'immagine. È il modello 3D della casa, tagliato a 1,20 m e visto dall'alto con un teleobiettivo lunghissimo. Scorri e i muri crescono.</p>
+      <p class="hint">Scorri ↓</p>
+    </section>
+
+    <section class="cap" data-in="0.07" data-out="0.16">
+      <p class="kicker">01 · Sezione</p>
+      <h2>I muri <em>crescono.</em></h2>
+      <p>Ogni muro viene dal PDF dell'architetto, al centimetro: settantotto rettangoli di pianta che diventano tre metri di pietra.</p>
+    </section>
+
+    <section class="cap" data-in="0.18" data-out="0.30">
+      <p class="kicker">02 · Lo stile</p>
+      <h2>Pietra, legno,<br /><em>tetto verde.</em></h2>
+      <p>Come Villa SD a Bordighera: un solo piano, facciate in pietra naturale, grandi vetrate, rovere e botticino dentro, ulivi intorno.</p>
+    </section>
+
+    <section class="cap" data-in="0.38" data-out="0.47">
+      <p class="kicker">03 · Ingresso</p>
+      <h2>Dal portico <em>a est.</em></h2>
+      <p>Si entra sotto il tetto verde, da una porta a bilico in noce alta 2,70 m.</p>
+    </section>
+
+    <section class="cap" data-in="0.51" data-out="0.585">
+      <p class="kicker">04 · Soggiorno</p>
+      <h2>Soggiorno, <em>mq 63,17</em></h2>
+      <p>Una parete in listelli di rovere nasconde la TV. Divano a L verso ovest, pavimento in pietra chiara, due vetrate da 3 m sul portico.</p>
+    </section>
+
+    <section class="cap" data-in="0.59" data-out="0.65">
+      <p class="kicker">05 · Cucina e pranzo</p>
+      <h2 class="v-a">Isola da <em>2,10 m.</em></h2>
+      <h2 class="v-b">Cucina <em>lineare.</em></h2>
+      <p class="v-a">Colonne in rovere sulla parete nord, piano in botticino lungo la parete est e un'isola davanti al tavolo per sei.</p>
+      <p class="v-b">Colonne in rovere e piano in botticino lungo le pareti. Senza isola, il tavolo per sei prende il centro della stanza.</p>
+    </section>
+
+    <section class="cap" data-in="0.655" data-out="0.715">
+      <p class="kicker">06 · Portico</p>
+      <h2>Portico a sud, <em class="v-a">mq 66,02</em><em class="v-b">mq 53,57</em></h2>
+      <p>Lamelle di legno su travi in pietra, come il patio di Villa SD. Sotto, un tavolo lungo cinque metri.</p>
+    </section>
+
+    <section class="cap" data-in="0.72" data-out="0.78">
+      <p class="kicker">07 · Zona notte</p>
+      <h2>Un corridoio, <em>due camere.</em></h2>
+      <p>Il disimpegno largo 1,10 m porta alle camere e ai due bagni, rivestiti in pietra botticino.</p>
+    </section>
+
+    <section class="cap" data-in="0.80" data-out="0.91">
+      <p class="kicker">08 · Camera padronale</p>
+      <h2>Mq 14,40 <em>e guardaroba.</em></h2>
+      <p>Dietro la testata in rovere c'è il guardaroba. La porta finestra apre sul portico est e sugli ulivi.</p>
+    </section>
+
+    <section class="cap cap--end" data-in="0.94" data-out="1">
+      <p class="kicker">Casa Bogoni · <span class="v-a">Soluzione 3-A</span><span class="v-b">Soluzione 3-B</span></p>
+      <h2>Pietra, legno, <em>verde.</em></h2>
+      <p class="v-a">Cucina con isola, finestra a ovest nel soggiorno, portico largo tutta la casa.</p>
+      <p class="v-b">Cucina lineare senza isola, soggiorno chiuso a ovest, portico più compatto.</p>
+      <div class="actions">
+        <a class="btn v-a" href="#b">Vedi la soluzione 3-B</a>
+        <a class="btn v-b" href="#a">Vedi la soluzione 3-A</a>
+        <button class="btn btn--ghost" data-explore>Esplora liberamente</button>
+        <a class="btn btn--ghost" href="#" data-go="0">Torna alla pianta</a>
+      </div>
+      <p class="fine">Muri e aperture dalle planimetrie; arredi, materiali e destinazione di cantina e autorimessa sono un'ipotesi.</p>
+    </section>
+  </div>
+
+  <div class="explore-ui">
+    <p>Trascina per ruotare · rotella per avvicinarti</p>
+    <button class="btn btn--ghost" id="roofToggle">Togli il tetto</button>
+    <button class="btn" data-explore>Torna al racconto</button>
+  </div>
+
+  <div id="track" aria-hidden="true"></div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
