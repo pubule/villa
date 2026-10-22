@@ -79,6 +79,25 @@ export class Batch {
   solids(list, mat, lines) {
     const eps = 1e-4;
     const uniq = (a) => a.sort((p, q) => p - q).filter((v, i, arr) => i === 0 || v - arr[i - 1] > eps);
+    // i rettangoli del PDF non combaciano al millimetro: coordinate più vicine di
+    // 5 cm diventano una sola, così negli incroci non restano gradini e fessure
+    const snap = (vals) => {
+      const sorted = uniq(vals.slice());
+      const groups = [];
+      for (const v of sorted) {
+        const g = groups[groups.length - 1];
+        if (g && v - g[g.length - 1] < 0.05) g.push(v); else groups.push([v]);
+      }
+      const map = new Map();
+      for (const g of groups) {
+        const m = g.reduce((a, b) => a + b, 0) / g.length;
+        for (const v of g) map.set(v, m);
+      }
+      return (v) => { for (const [k, m] of map) if (Math.abs(k - v) <= eps) return m; return v; };
+    };
+    const sx = snap(list.flatMap((s) => [s.r[0], s.r[2]]));
+    const sz = snap(list.flatMap((s) => [s.r[1], s.r[3]]));
+    list = list.map((s) => ({ r: [sx(s.r[0]), sz(s.r[1]), sx(s.r[2]), sz(s.r[3])], y: s.y }));
     const xs = uniq(list.flatMap((s) => [s.r[0], s.r[2]]));
     const zs = uniq(list.flatMap((s) => [s.r[1], s.r[3]]));
     const nx = xs.length - 1, nz = zs.length - 1;
