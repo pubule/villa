@@ -24,10 +24,16 @@ export function buildHouse(variant, materials, parent) {
   const inFootprint = (x, z) => variant.roofs.some((q) => x > q[0] && x < q[2] && z > q[1] && z < q[3])
     && !(x > 10.376 && z > 6.849 && z < 16.087)
     && !(x > 1.448 && x < 5.101 && z > 20.523) && !(x >= 5.101 && z > 21.319);
+  // fuori: intonaco bianco burro; pietra solo in qualche dettaglio
+  // (il portico d'ingresso a est, il deposito, i pilastri del portico sud)
+  const stoneAt = (x, z) => (x > 9.9 && z > 6.849 && z < 16.2)
+    || (x < 1.5 && z > 20.4)
+    || z > 24.7;
+  const outMat = (p) => (stoneAt(p[0], p[2]) ? 'ashlar|1' : 'render|1');
   const wallMat = (n, p) => {
-    if (n[1] !== 0) return 'stone|1';
+    if (n[1] !== 0) return outMat(p);
     const r = roomAt(p[0], p[2]);
-    if (!r) return inFootprint(p[0], p[2]) ? 'plaster|0' : 'stone|1';
+    if (!r) return inFootprint(p[0], p[2]) ? 'plaster|0' : outMat(p);
     return WALL_IN[r.id] || 'plaster|0';
   };
 
@@ -66,9 +72,16 @@ export function buildHouse(variant, materials, parent) {
       b.box(x0, 0, z0 + 0.04, x1, o.head, z0 + 0.1, 'timber|1', { lines: 'e' });
       for (let y = 0.52; y < o.head; y += 0.52) b.segment('e', [x0, y, z0 + 0.035], [x1, y, z0 + 0.035]);
     }
-    if (o.kind === 'door' || o.kind === 'panel') {
-      if (alongX) b.box(x0, 0, mz - 0.03, x1, o.head, mz + 0.03, 'walnut|2', { lines: 'b' });
-      else b.box(mx - 0.03, 0, z0, mx + 0.03, o.head, z1, 'walnut|2', { lines: 'b' });
+    // porte lasciate aperte, così si entra in tutti i locali
+    if (o.kind === 'door') {
+      // anta in noce aperta a 90° verso l'esterno
+      if (alongX) b.box(x0 + 0.02, 0, z1 + 0.01, x0 + 0.07, o.head - 0.02, z1 + 0.01 + (x1 - x0) - 0.04, 'walnut|2', { lines: 'b' });
+      else b.box(x1 + 0.01, 0, z0 + 0.02, x1 + 0.01 + (z1 - z0) - 0.04, o.head - 0.02, z0 + 0.07, 'walnut|2', { lines: 'b' });
+    }
+    if (o.kind === 'panel') {
+      // pannello scorrevole raccolto contro il muro
+      if (alongX) b.box(x1 - 0.12, 0, z1 + 0.01, x1 - 0.06, o.head - 0.02, z1 + 0.07, 'walnut|2', { lines: 'b' });
+      else b.box(x1 + 0.01, 0, z1 - 0.12, x1 + 0.07, o.head - 0.02, z1 - 0.02, 'walnut|2', { lines: 'b' });
     }
     if (o.kind === 'entry') {
       // porta a bilico in noce, aperta verso il soggiorno
@@ -84,7 +97,8 @@ export function buildHouse(variant, materials, parent) {
   for (const room of rooms) {
     const m = room.id === 'deposito' ? null : FLOOR_MAT[room.floor];
     if (!m) continue;
-    for (const q of room.rects) b.box(q[0], -0.3, q[1], q[2], 0, q[3], m, { edges: false });
+    // solo la faccia di sopra: i fianchi coinciderebbero con le facce dei muri
+    for (const q of room.rects) b.box(q[0], -0.3, q[1], q[2], 0, q[3], (n) => (n[1] > 0 ? m : null), { edges: false });
   }
   // portico est e portico sud
   const px1 = variant.portico.x1;
@@ -103,13 +117,13 @@ export function buildHouse(variant, materials, parent) {
   const slabMat = (n, p) => {
     if (n[1] > 0) return 'plaster|1|r';
     if (n[1] < 0) return roomAt(p[0], p[2]) ? 'ceiling|0|r' : 'plaster|1|r';
-    return 'stone|1|r';
+    return 'render|1|r';
   };
   for (const r of variant.roofs) rb.box(r[0], H, r[1], r[2], H + 0.42, r[3], slabMat, { lines: 'e' });
   for (const r of variant.hips) hipRoof(rb, r, H + 0.42, 21, 0.55);
-  rb.box(0, 2.72, 25.70, px1, H + 0.2, 26.09, 'stone|1|r', { lines: 'e' });
-  rb.box(0, 2.72, 23.169, 0.38, H + 0.2, 25.70, 'stone|1|r', { lines: 'e' });
-  rb.box(px1 - 0.38, 2.72, 21.319, px1, H + 0.2, 25.70, 'stone|1|r', { lines: 'e' });
+  rb.box(0, 2.72, 25.70, px1, H + 0.2, 26.09, 'ashlar|1|r', { lines: 'e' });
+  rb.box(0, 2.72, 23.169, 0.38, H + 0.2, 25.70, 'ashlar|1|r', { lines: 'e' });
+  rb.box(px1 - 0.38, 2.72, 21.319, px1, H + 0.2, 25.70, 'ashlar|1|r', { lines: 'e' });
   for (let x = 1.75; x < px1 - 0.5; x += 0.42) {
     const zStart = x < 5.101 ? 20.523 : 21.319;
     rb.box(x, H - 0.12, zStart, x + 0.07, H + 0.2, 25.70, 'timber|1|r', { lines: 'e' });
