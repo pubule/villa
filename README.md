@@ -1,6 +1,6 @@
-# Casa Bogoni · dalla pianta alla casa
+# Villa · dalla pianta alla casa
 
-Le due planimetrie proposte per Casa Bogoni (soluzioni **3-A** e **3-B**) diventano un modello 3D da percorrere nel browser, sullo stesso principio di [Casa Serra](https://sam1983aing.github.io/casa-serra/): la pagina si apre su una pianta in bianco e nero, scorrendo i muri crescono, la camera scende all'ingresso e attraversa la casa stanza per stanza. Ogni stanza resta un disegno finché la camera non ci arriva, poi i materiali veri si allargano sulle superfici.
+Le due planimetrie proposte per la villa (soluzioni **3-A** e **3-B**) diventano un modello 3D da percorrere nel browser, sullo stesso principio di [Casa Serra](https://sam1983aing.github.io/casa-serra/): la pagina si apre su una pianta in bianco e nero, scorrendo i muri crescono, la camera scende all'ingresso e attraversa la casa stanza per stanza. Ogni stanza resta un disegno finché la camera non ci arriva, poi i materiali veri si allargano sulle superfici.
 
 Lo stile è quello di [Villa SD a Bordighera](https://homeadore.com/2023/07/05/villa-sd-a-stone-house-treasure-in-bordighera-italy/) (Giordano Hadamik Architects): un solo piano, facciate in pietra naturale, tetto verde, pergolato con lamelle di legno, rovere e pietra botticino all'interno, ulivi intorno.
 
