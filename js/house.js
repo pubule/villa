@@ -3,7 +3,7 @@ import { Batch } from './builder.js';
 import { H } from './plans.js';
 
 // Costruisce la casa di una variante: muri in pietra fuori e intonaco dentro,
-// pavimenti, serramenti, tetto verde, pergolato, arredi.
+// pavimenti, serramenti, tetto a padiglione in coppi, pergolato, arredi.
 
 const FLOOR_MAT = { stone: 'floor|0', oak: 'oakfloor|0', garage: 'garage|0' };
 const WALL_IN = { bagno: 'botticino|0', bagno2: 'botticino|0', garage: 'plaster|0' };
@@ -33,14 +33,14 @@ export function buildHouse(variant, materials, parent) {
 
   // ---- muri
   // la base sta 5 mm sopra il solaio: vista dall'alto è il "pieno" della sezione
-  for (const w of variant.walls) b.box(w[0], -0.035, w[1], w[2], H, w[3], wallMat, { lines: 'b' });
+  const solid = variant.walls.map((w) => ({ r: w, y: [-0.035, H] }));
 
   // ---- aperture
   for (const o of variant.openings) {
     const [x0, z0, x1, z1] = o.r;
     const alongX = (x1 - x0) > (z1 - z0);
-    if (o.sill > 0) b.box(x0, -0.035, z0, x1, o.sill, z1, wallMat, { lines: 'b' });
-    b.box(x0, o.head, z0, x1, H, z1, wallMat, { lines: 'b' });
+    if (o.sill > 0) solid.push({ r: o.r, y: [-0.035, o.sill] });
+    solid.push({ r: o.r, y: [o.head, H] });
     const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2;
     const ft = 0.05; // telaio
     const pane = (y0, y1) => {
@@ -77,6 +77,8 @@ export function buildHouse(variant, materials, parent) {
     }
   }
 
+  b.solids(solid, wallMat, 'b');
+
   // ---- pavimenti
   for (const r of variant.roofs) b.box(r[0], -0.34, r[1], r[2], -0.04, r[3], 'floor|2', { edges: false });
   for (const room of rooms) {
@@ -92,32 +94,73 @@ export function buildHouse(variant, materials, parent) {
   // gradino davanti al portico
   b.box(-0.2, -0.3, 26.09, px1 + 0.2, -0.16, 26.6, 'paving|1', { lines: 'e' });
 
-  // ---- tetto verde: lastra con bordo in pietra, intradosso in intonaco
-  const roofMat = (n, p) => {
-    if (n[1] > 0) return 'roofgreen|1';
-    if (n[1] < 0) return roomAt(p[0], p[2]) ? 'ceiling|0' : 'plaster|1';
-    return 'stone|1';
-  };
-  for (const r of variant.roofs) b.box(r[0], H, r[1], r[2], H + 0.42, r[3], roofMat, { lines: 'e' });
-  // cordolo in pietra lungo il perimetro del tetto
-  const coping = [[0.301, 0, 11.159, 0.25], [0, 4.153, 0.25, 23.169], [12.746, 4.153, 12.996, 21.319], [0.301, 0, 0.55, 4.153], [10.909, 0, 11.159, 4.153]];
-  for (const c of coping) b.box(c[0], H + 0.42, c[1], c[2], H + 0.52, c[3], 'stone|1', { lines: 'e' });
 
-  // ---- pergolato del portico sud: travi in pietra e lamelle in legno
-  b.box(0, 2.72, 25.70, px1, H + 0.2, 26.09, 'stone|1', { lines: 'e' });
-  b.box(0, 2.72, 23.169, 0.38, H + 0.2, 25.70, 'stone|1', { lines: 'e' });
-  b.box(px1 - 0.38, 2.72, 21.319, px1, H + 0.2, 25.70, 'stone|1', { lines: 'e' });
+  // ---- coperture: solaio (il soffitto delle stanze), tetti a padiglione in
+  // coppi e pergolato. Stanno in un
+  // gruppo a parte, che scende dall'alto quando la camera si avvicina.
+  const rb = new Batch(materials);
+  rb.lineTag = 'r';
+  const slabMat = (n, p) => {
+    if (n[1] > 0) return 'plaster|1|r';
+    if (n[1] < 0) return roomAt(p[0], p[2]) ? 'ceiling|0|r' : 'plaster|1|r';
+    return 'stone|1|r';
+  };
+  for (const r of variant.roofs) rb.box(r[0], H, r[1], r[2], H + 0.42, r[3], slabMat, { lines: 'e' });
+  for (const r of variant.hips) hipRoof(rb, r, H + 0.42, 21, 0.55);
+  rb.box(0, 2.72, 25.70, px1, H + 0.2, 26.09, 'stone|1|r', { lines: 'e' });
+  rb.box(0, 2.72, 23.169, 0.38, H + 0.2, 25.70, 'stone|1|r', { lines: 'e' });
+  rb.box(px1 - 0.38, 2.72, 21.319, px1, H + 0.2, 25.70, 'stone|1|r', { lines: 'e' });
   for (let x = 1.75; x < px1 - 0.5; x += 0.42) {
     const zStart = x < 5.101 ? 20.523 : 21.319;
-    b.box(x, H - 0.12, zStart, x + 0.07, H + 0.2, 25.70, 'timber|1', { lines: 'e' });
+    rb.box(x, H - 0.12, zStart, x + 0.07, H + 0.2, 25.70, 'timber|1|r', { lines: 'e' });
   }
-  b.box(1.448, H - 0.24, 23.0, px1 - 0.38, H - 0.12, 23.14, 'timber|1', { lines: 'e' });
+  rb.box(1.448, H - 0.24, 23.0, px1 - 0.38, H - 0.12, 23.14, 'timber|1|r', { lines: 'e' });
+  const roofGroup = new THREE.Group();
+  rb.build(roofGroup);
+  parent.add(roofGroup);
 
   // ---- arredi
   furnish(b, variant);
 
   const objs = b.build(parent);
-  return { objs, roomAt };
+  return { objs, roomAt, roofGroup };
+}
+
+// Tetto a padiglione su un rettangolo [x0,z0,x1,z1]: colmo lungo il lato
+// lungo, falde inclinate di "pitch" gradi, gronda sporgente di "over" metri.
+function hipRoof(b, [x0, z0, x1, z1], y, pitch, over) {
+  x0 -= over; z0 -= over; x1 += over; z1 += over;
+  const t = Math.tan(pitch * Math.PI / 180);
+  const alongX = (x1 - x0) >= (z1 - z0);
+  const half = (alongX ? z1 - z0 : x1 - x0) / 2;
+  const h = half * t;
+  const k = 1 / Math.cos(pitch * Math.PI / 180);
+  const P = (x, z, yy) => [x, yy, z];
+  let faces;
+  if (alongX) {
+    const zc = (z0 + z1) / 2, ra = P(x0 + half, zc, y + h), rbb = P(x1 - half, zc, y + h);
+    faces = [
+      { pts: [P(x0, z1, y), P(x1, z1, y), rbb, ra], e: [1, 0], s: [0, -1] },
+      { pts: [P(x1, z0, y), P(x0, z0, y), ra, rbb], e: [-1, 0], s: [0, 1] },
+      { pts: [P(x0, z0, y), P(x0, z1, y), ra], e: [0, 1], s: [1, 0] },
+      { pts: [P(x1, z1, y), P(x1, z0, y), rbb], e: [0, -1], s: [-1, 0] },
+    ];
+  } else {
+    const xc = (x0 + x1) / 2, ra = P(xc, z0 + half, y + h), rbb = P(xc, z1 - half, y + h);
+    faces = [
+      { pts: [P(x1, z1, y), P(x1, z0, y), ra, rbb], e: [0, -1], s: [-1, 0] },
+      { pts: [P(x0, z0, y), P(x0, z1, y), rbb, ra], e: [0, 1], s: [1, 0] },
+      { pts: [P(x1, z0, y), P(x0, z0, y), ra], e: [-1, 0], s: [0, 1] },
+      { pts: [P(x0, z1, y), P(x1, z1, y), rbb], e: [1, 0], s: [0, -1] },
+    ];
+  }
+  for (const f of faces) {
+    const uv = f.pts.map((p) => [p[0] * f.e[0] + p[2] * f.e[1], (p[0] * f.s[0] + p[2] * f.s[1]) * k]);
+    b.poly('roof|1|r', f.pts, uv);
+    for (let i = 0; i < f.pts.length; i++) b.segment('e', f.pts[i], f.pts[(i + 1) % f.pts.length]);
+  }
+  // sottogronda in legno e fascia di bordo
+  b.box(x0, y - 0.14, z0, x1, y, z1, (n) => (n[1] > 0 ? null : n[1] < 0 ? 'timber|1|r' : 'plaster|1|r'), { lines: 'e' });
 }
 
 function legs(b, x0, z0, x1, z1, h, mat, t = 0.05, lines = 'f') {

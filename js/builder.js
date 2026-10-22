@@ -39,6 +39,17 @@ export class Batch {
     g.idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
   }
 
+  // poligono convesso piano (3 o 4 vertici in senso antiorario visto dalla
+  // normale) con UV date esplicitamente
+  poly(key, pts, uvs) {
+    const g = this._group(key);
+    const a = new THREE.Vector3(...pts[0]), bb = new THREE.Vector3(...pts[1]), c = new THREE.Vector3(...pts[2]);
+    const n = bb.sub(a).cross(c.sub(a)).normalize();
+    const base = g.pos.length / 3;
+    pts.forEach((p, i) => { g.pos.push(...p); g.nor.push(n.x, n.y, n.z); g.uv.push(...uvs[i]); });
+    for (let i = 1; i < pts.length - 1; i++) g.idx.push(base, base + i, base + i + 1);
+  }
+
   // box da (x0,y0,z0) a (x1,y1,z1). mat: stringa "base|mode" o funzione (faccia, punto di prova) -> stringa
   box(x0, y0, z0, x1, y1, z1, mat, { lines = 'i', edges = true } = {}) {
     if (x1 < x0) [x0, x1] = [x1, x0];
@@ -60,6 +71,103 @@ export class Batch {
       this.quad(key, a, b, c, d, f.n);
     }
     if (edges && lines) this.boxEdges(x0, y0, z0, x1, y1, z1, lines);
+  }
+
+  // unione di prismi verticali {r: [x0, z0, x1, z1], y: [y0, y1]}: niente facce
+  // sovrapposte né interne, così i muri che si incrociano non sfarfallano e la
+  // sezione tagliata resta un pieno nero pulito. Spigoli solo sul contorno.
+  solids(list, mat, lines) {
+    const eps = 1e-4;
+    const uniq = (a) => a.sort((p, q) => p - q).filter((v, i, arr) => i === 0 || v - arr[i - 1] > eps);
+    const xs = uniq(list.flatMap((s) => [s.r[0], s.r[2]]));
+    const zs = uniq(list.flatMap((s) => [s.r[1], s.r[3]]));
+    const nx = xs.length - 1, nz = zs.length - 1;
+    const ix = (v) => xs.findIndex((x) => Math.abs(x - v) <= eps);
+    const iz = (v) => zs.findIndex((z) => Math.abs(z - v) <= eps);
+    const merge = (iv) => {
+      iv.sort((a, b) => a[0] - b[0]);
+      const out = [];
+      for (const [a, b] of iv) {
+        const l = out[out.length - 1];
+        if (l && a <= l[1] + eps) l[1] = Math.max(l[1], b); else out.push([a, b]);
+      }
+      return out;
+    };
+    const minus = (iv, cut) => {
+      let cur = iv.map((v) => [...v]);
+      for (const [c0, c1] of cut) {
+        const nxt = [];
+        for (const [a, b] of cur) {
+          if (c1 <= a + eps || c0 >= b - eps) { nxt.push([a, b]); continue; }
+          if (c0 > a + eps) nxt.push([a, c0]);
+          if (c1 < b - eps) nxt.push([c1, b]);
+        }
+        cur = nxt;
+      }
+      return cur;
+    };
+    const cells = Array.from({ length: nx }, () => Array.from({ length: nz }, () => []));
+    for (const s of list) {
+      for (let i = ix(s.r[0]); i < ix(s.r[2]); i++) for (let j = iz(s.r[1]); j < iz(s.r[3]); j++) cells[i][j].push([...s.y]);
+    }
+    for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) cells[i][j] = merge(cells[i][j]);
+    const at = (i, j) => (i < 0 || j < 0 || i >= nx || j >= nz ? [] : cells[i][j]);
+    const key = (n, p) => (typeof mat === 'function' ? mat(n, p) : mat);
+    const seg = (a, b) => { if (lines) this.segment(lines, a, b); };
+    // facce laterali esposte, per ogni lato di cella
+    const exposed = (i, j, d) => {
+      const [di, dj] = d;
+      return minus(at(i, j), at(i + di, j + dj));
+    };
+    const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) {
+      const iv = cells[i][j];
+      if (!iv.length) continue;
+      const x0 = xs[i], x1 = xs[i + 1], z0 = zs[j], z1 = zs[j + 1];
+      for (const [y0, y1] of iv) {
+        const top = key([0, 1, 0], [(x0 + x1) / 2, y1 + 0.08, (z0 + z1) / 2]);
+        if (top) this.quad(top, [x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], [0, 1, 0]);
+        const bot = key([0, -1, 0], [(x0 + x1) / 2, y0 - 0.08, (z0 + z1) / 2]);
+        if (bot) this.quad(bot, [x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], [0, -1, 0]);
+      }
+      // contorno di sopra e di sotto: spigolo dove il vicino non ha la stessa faccia orizzontale
+      for (const [di, dj] of DIRS) {
+        const nb = at(i + di, j + dj);
+        const ends = [];
+        for (const [y0, y1] of iv) {
+          if (!nb.some((v) => Math.abs(v[1] - y1) < eps && v[0] < y1 - eps)) ends.push(y1);
+          if (!nb.some((v) => Math.abs(v[0] - y0) < eps && v[1] > y0 + eps)) ends.push(y0);
+        }
+        for (const y of ends) {
+          if (di === 1) seg([x1, y, z0], [x1, y, z1]);
+          else if (di === -1) seg([x0, y, z0], [x0, y, z1]);
+          else if (dj === 1) seg([x0, y, z1], [x1, y, z1]);
+          else seg([x0, y, z0], [x1, y, z0]);
+        }
+      }
+      for (const d of DIRS) {
+        const [di, dj] = d;
+        const n = [di, 0, dj];
+        for (const [y0, y1] of exposed(i, j, d)) {
+          let a, b2, c, e;
+          if (di > 0) { a = [x1, y0, z1]; b2 = [x1, y0, z0]; c = [x1, y1, z0]; e = [x1, y1, z1]; }
+          else if (di < 0) { a = [x0, y0, z0]; b2 = [x0, y0, z1]; c = [x0, y1, z1]; e = [x0, y1, z0]; }
+          else if (dj > 0) { a = [x0, y0, z1]; b2 = [x1, y0, z1]; c = [x1, y1, z1]; e = [x0, y1, z1]; }
+          else { a = [x1, y0, z0]; b2 = [x0, y0, z0]; c = [x0, y1, z0]; e = [x1, y1, z0]; }
+          const fx = di ? (di > 0 ? x1 : x0) : (x0 + x1) / 2;
+          const fz = dj ? (dj > 0 ? z1 : z0) : (z0 + z1) / 2;
+          const k = key(n, [fx + di * 0.08, (y0 + y1) / 2, fz + dj * 0.08]);
+          if (k) this.quad(k, a, b2, c, e, n);
+          // spigoli verticali alle due estremità del lato, se la faccia non continua
+          const ends = di ? [[x1 * (di > 0) + x0 * (di < 0), z0, 0, -1], [x1 * (di > 0) + x0 * (di < 0), z1, 0, 1]]
+            : [[x0, z1 * (dj > 0) + z0 * (dj < 0), -1, 0], [x1, z1 * (dj > 0) + z0 * (dj < 0), 1, 0]];
+          for (const [px, pz, si, sj] of ends) {
+            const cont = exposed(i + si, j + sj, d).some((v) => Math.abs(v[0] - y0) < eps && Math.abs(v[1] - y1) < eps);
+            if (!cont) seg([px, y0, pz], [px, y1, pz]);
+          }
+        }
+      }
+    }
   }
 
   boxEdges(x0, y0, z0, x1, y1, z1, key) {
@@ -102,13 +210,13 @@ export class Batch {
   build(parent) {
     const out = [];
     for (const [key, g] of this.groups) {
-      const [base, mode] = key.split('|');
+      const [base, mode, tag] = key.split('|');
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.Float32BufferAttribute(g.pos, 3));
       geo.setAttribute('normal', new THREE.Float32BufferAttribute(g.nor, 3));
       geo.setAttribute('uv', new THREE.Float32BufferAttribute(g.uv, 2));
       geo.setIndex(g.idx);
-      const mesh = new THREE.Mesh(geo, this.materials.get(base, Number(mode || 0)));
+      const mesh = new THREE.Mesh(geo, this.materials.get(base, Number(mode || 0), tag || ''));
       mesh.castShadow = base !== 'glass';
       mesh.receiveShadow = true;
       if (base === 'glass') mesh.renderOrder = 2;
@@ -120,7 +228,7 @@ export class Batch {
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.Float32BufferAttribute(L, 3));
       const mode = key === 'e' ? 1 : key === 'b' ? 2 : 0;
-      const ls = new THREE.LineSegments(geo, this.materials.lines(mode, key === 'f' ? 0.55 : 0.9));
+      const ls = new THREE.LineSegments(geo, this.materials.lines(mode, key === 'f' ? 0.55 : 0.9, this.lineTag || ''));
       ls.renderOrder = 3;
       parent.add(ls);
       out.push(ls);

@@ -1,14 +1,16 @@
 import * as THREE from 'three';
 import { revealSurface, revealLines } from './reveal.js';
 
-// Texture CC0 da Poly Haven (1k). Le UV sono in metri: "scale" dice quanti
-// metri copre una ripetizione della texture.
+// Texture CC0 da Poly Haven e ambientCG (2k per pietra, pavimenti, intonaco e
+// coppi). Le UV sono in metri: "scale" dice quanti metri copre una ripetizione.
 const TEX = {
   stone_wall: 1.7,
-  plastered_wall_04: 2.5,
-  marble_01: 1.6,
+  plaster001: 2.2,
+  travertine009: 1.8,
+  tiles143: 2.0,
+  woodfloor051: 2.2,
+  roofingtiles006: 2.2,
   oak_veneer_01: 1.4,
-  large_floor_tiles_02: 2.4,
   leafy_grass: 3.0,
   gravel_floor_02: 2.0,
   rough_linen: 0.8,
@@ -16,16 +18,16 @@ const TEX = {
 
 // materiali di base: texture + tinta + rugosità
 const BASES = {
-  stone:   { tex: 'stone_wall', color: '#e9dccb', rough: 1 },
-  plaster: { tex: 'plastered_wall_04', color: '#f4efe6', rough: 1 },
-  ceiling: { tex: 'plastered_wall_04', color: '#f4efe6', rough: 1, emissive: '#5a544b' },
-  floor:   { tex: 'marble_01', color: '#f3ece0', rough: 0.55, nrm: 0.3 },
-  oakfloor:{ tex: 'oak_veneer_01', color: '#e6d0b4', rough: 0.8 },
-  garage:  { tex: 'large_floor_tiles_02', color: '#d8d2c8', rough: 0.9 },
-  paving:  { tex: 'marble_01', color: '#e9dcc5', rough: 0.9, nrm: 0.5 },
+  stone:   { tex: 'stone_wall', color: '#efe3d2', rough: 1 },
+  plaster: { tex: 'plaster001', color: '#fbf7f0', rough: 1, nrm: 0.6 },
+  ceiling: { tex: 'plaster001', color: '#fbf7f0', rough: 1, nrm: 0.4, emissive: '#57524a' },
+  floor:   { tex: 'travertine009', color: '#ffffff', rough: 0.6, nrm: 0.5 },
+  oakfloor:{ tex: 'woodfloor051', color: '#f2e6d6', rough: 0.8 },
+  garage:  { tex: 'tiles143', color: '#e2dcd2', rough: 0.95 },
+  paving:  { tex: 'tiles143', color: '#ffffff', rough: 0.95 },
+  roof:    { tex: 'roofingtiles006', color: '#e6d2c2', rough: 1 },
   grass:   { tex: 'leafy_grass', color: '#e4f0bf', rough: 1 },
   meadow:  { color: '#9fa676', rough: 1 },
-  roofgreen: { tex: 'leafy_grass', color: '#dfeab6', rough: 1 },
   gravel:  { tex: 'gravel_floor_02', color: '#f1e7d8', rough: 1 },
   timber:  { tex: 'oak_veneer_01', color: '#c9ab88', rough: 0.85 },
   oak:     { tex: 'oak_veneer_01', color: '#efdcc2', rough: 0.7 },
@@ -33,7 +35,7 @@ const BASES = {
   linen:   { tex: 'rough_linen', noMap: true, color: '#d9ccb6', rough: 1 },
   linenDark: { tex: 'rough_linen', noMap: true, color: '#8f7f69', rough: 1 },
   linenWhite: { tex: 'rough_linen', noMap: true, color: '#f4efe6', rough: 1 },
-  botticino: { tex: 'marble_01', color: '#f2e6d2', rough: 0.35 },
+  botticino: { tex: 'travertine009', color: '#fffaf2', rough: 0.35, nrm: 0.3 },
   ceramic: { color: '#f7f5f1', rough: 0.25 },
   metal:   { color: '#3c3833', rough: 0.45, metal: 0.8 },
   black:   { color: '#1d1c1b', rough: 0.3 },
@@ -51,7 +53,7 @@ export class Materials {
     this.tex = {};
     this.cache = new Map();
     this.lineCache = new Map();
-    this.anisotropy = 4;
+    this.anisotropy = 8;
   }
 
   loadTextures() {
@@ -70,8 +72,9 @@ export class Materials {
   }
 
   // key: "base" + modalità di rivelazione (0 interno, 1 esterno, 2 entrambi)
-  get(baseName, mode = 0) {
-    const k = `${baseName}|${mode}`;
+  // tag: un gruppo di materiali separato (es. 'r' per le coperture animate)
+  get(baseName, mode = 0, tag = '') {
+    const k = `${baseName}|${mode}|${tag}`;
     if (this.cache.has(k)) return this.cache.get(k);
     const b = BASES[baseName];
     if (!b) throw new Error('materiale sconosciuto ' + baseName);
@@ -99,8 +102,8 @@ export class Materials {
     return m;
   }
 
-  lines(mode = 0, opacity = 0.9) {
-    const k = `${mode}|${opacity}`;
+  lines(mode = 0, opacity = 0.9, tag = '') {
+    const k = `${mode}|${opacity}|${tag}`;
     if (this.lineCache.has(k)) return this.lineCache.get(k);
     const m = new THREE.LineBasicMaterial({ color: '#24221f', transparent: true, opacity, depthWrite: false });
     revealLines(m, { mode });

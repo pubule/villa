@@ -121,9 +121,17 @@ scene.add(world);
 setupRooms(variant.rooms);
 reveal.outCenter.set(11.7, 15.5, 48);
 const house = buildHouse(variant, materials, world);
+const roofMats = [];
 const nature = buildNature(variant, materials, world);
 for (const [k, m] of [...materials.cache.entries(), ...materials.lineCache.entries()]) {
   if (k.startsWith('leaves') || k.startsWith('bark')) continue;
+  if (k.endsWith('|r')) {
+    // coperture: niente taglio, entrano scendendo e sfumando
+    m.transparent = true;
+    m.userData.baseOpacity = m.opacity;
+    roofMats.push(m);
+    continue;
+  }
   m.clippingPlanes = [clip];
   m.clipShadows = true;
 }
@@ -227,12 +235,25 @@ const ROOM_T = {
 };
 const DEFAULT_T = [0.93, 0.995];
 
+// coperture: scendono di qualche metro e sfumano dentro
+function setRoof(p) {
+  const g = house.roofGroup;
+  g.visible = p > 0.001;
+  g.position.y = (1 - p) * (1 - p) * 7;
+  for (const m of roofMats) {
+    m.opacity = m.userData.baseOpacity * p;
+    m.depthWrite = p > 0.98;
+  }
+}
+
 function applyTimeline(t) {
   // muri che crescono, poi il tetto
   let h = 1.2;
   h += smooth(win(t, 0.03, 0.15)) * (2.97 - 1.2);
-  h += smooth(win(t, 0.32, 0.40)) * 60;
+  // poi il taglio sparisce: sopra i muri c'è solo il gruppo delle coperture
+  h += win(t, 0.30, 0.31) * 60;
   clip.constant = h;
+  setRoof(smooth(win(t, 0.31, 0.40)));
   sheet.material.opacity = 1 - smooth(win(t, 0.03, 0.12));
   sheet.visible = sheet.material.opacity > 0.002;
   skyUniforms.uMix.value = smooth(win(t, 0.27, 0.40));
@@ -317,7 +338,9 @@ exploreBtns.forEach((b) => b.addEventListener('click', () => setExplore(!documen
 const roofBtn = document.getElementById('roofToggle');
 roofBtn?.addEventListener('click', () => {
   const off = roofBtn.classList.toggle('off');
+  roofBtn.textContent = off ? 'Rimetti il tetto' : 'Togli il tetto';
   clip.constant = off ? 2.97 : 61;
+  setRoof(off ? 0 : 1);
 });
 
 // ---------------------------------------------------------------- ciclo

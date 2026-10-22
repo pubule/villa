@@ -55,13 +55,21 @@ const OPEN_COMMON = [
   { r: [1.348, 20.523, 1.448, 22.919], sill: 0, head: 2.4, kind: 'panel' },
 ];
 
-// Coperture: solaio verde sul corpo principale, pergolato in legno sul portico.
+// Solaio piano sopra le stanze (il soffitto); sopra stanno i tetti a padiglione.
 const ROOF_COMMON = [
   [0.301, 0.0, 11.159, 4.153],
   [0.0, 4.153, 12.996, 6.849],
   [0.0, 6.849, 12.996, 20.523],
   [5.101, 20.523, 12.996, 21.319],
   [0.0, 20.523, 1.448, 23.169],
+];
+
+// Tetti a padiglione (rettangoli di gronda prima della sporgenza)
+const HIPS = [
+  [0.301, 0.0, 11.159, 6.849],
+  [11.159, 4.153, 12.996, 6.849],
+  [0.0, 6.849, 12.996, 21.319],
+  [0.0, 21.319, 1.448, 23.169],
 ];
 
 // Lotto, letto dalle quote 28,06 / 39,13 / 18,13 / 22,46.
@@ -78,6 +86,7 @@ export const VARIANTS = {
       { r: [12.543, 18.284, 12.996, 19.126], sill: 1.05, head: 2.3, kind: 'window' },
     ],
     roofs: ROOF_COMMON,
+    hips: HIPS,
     portico: { x1: 12.996, area: 'mq 66,02', table: [6.45, 23.05, 11.45, 23.95] },
     livingArea: 'mq 63,17',
     kitchen: 'island',
@@ -93,6 +102,7 @@ export const VARIANTS = {
       { r: [12.543, 19.101, 12.996, 19.943], sill: 1.05, head: 2.3, kind: 'window' },
     ],
     roofs: ROOF_COMMON,
+    hips: HIPS,
     portico: { x1: 11.151, area: 'mq 53,57', table: [3.38, 23.1, 8.38, 24.0] },
     livingArea: 'mq 63,17',
     kitchen: 'linear',
