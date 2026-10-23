@@ -10,6 +10,9 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 // chiave delle linee del disegno: 'f' arredi interni, 'e' esterni
 let LINE = 'f';
 export const lineKey = (k) => { LINE = k; };
+// qualità: moltiplica le suddivisioni di spigoli arrotondati e torniti
+let Q = 1;
+export const setQuality = (q) => { Q = q; };
 
 export class Piece {
   constructor(b, x, z, rot = 0, y = 0) {
@@ -27,7 +30,7 @@ export class Piece {
   rbox(x0, y0, z0, x1, y1, z1, r, mat, { outline = true, seg = 3 } = {}) {
     const w = x1 - x0, h = y1 - y0, d = z1 - z0;
     const rr = Math.min(r, w / 2 - 1e-3, h / 2 - 1e-3, d / 2 - 1e-3);
-    const g = new RoundedBoxGeometry(w, h, d, seg, Math.max(rr, 0.002));
+    const g = new RoundedBoxGeometry(w, h, d, Math.round(seg * Q), Math.max(rr, 0.002));
     g.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
     this.add(g, mat);
     if (outline) this.outline(x0, y0, z0, x1, y1, z1);
@@ -43,14 +46,14 @@ export class Piece {
   }
 
   cyl(x, y0, z, r0, r1, y1, mat, seg = 24) {
-    const g = new THREE.CylinderGeometry(r1, r0, y1 - y0, seg);
+    const g = new THREE.CylinderGeometry(r1, r0, y1 - y0, Math.round(seg * Q));
     g.translate(x, (y0 + y1) / 2, z);
     return this.add(g, mat);
   }
 
   // profilo tornito: punti [r, y]; sx/sz allungano la forma (vasche, lavabi ovali)
   lathe(x, y, z, pts, mat, { sx = 1, sz = 1, seg = 40 } = {}) {
-    const g = new THREE.LatheGeometry(pts.map(([r, yy]) => new THREE.Vector2(r, yy)), seg);
+    const g = new THREE.LatheGeometry(pts.map(([r, yy]) => new THREE.Vector2(r, yy)), Math.round(seg * Q));
     g.scale(sx, 1, sz);
     g.translate(x, y, z);
     return this.add(g, mat);
@@ -58,7 +61,7 @@ export class Piece {
 
   tube(pts, r, mat, seg = 24) {
     const c = new THREE.CatmullRomCurve3(pts.map((p) => new THREE.Vector3(...p)));
-    return this.add(new THREE.TubeGeometry(c, seg, r, 8, false), mat);
+    return this.add(new THREE.TubeGeometry(c, Math.round(seg * Q), r, Math.round(8 * Q), false), mat);
   }
 
   outline(x0, y0, z0, x1, y1, z1, key = LINE) {

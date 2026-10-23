@@ -9,7 +9,7 @@ import * as F from './furniture.js';
 const FLOOR_MAT = { stone: 'floor|0', oak: 'oakfloor|0', garage: 'garage|0' };
 const WALL_IN = { bagno: 'botticino|0', bagno2: 'botticino|0', garage: 'plaster|0' };
 
-export function buildHouse(variant, materials, parent) {
+export function buildHouse(variant, materials, parent, opts = {}) {
   const b = new Batch(materials);
   const rooms = variant.rooms;
 
@@ -135,7 +135,7 @@ export function buildHouse(variant, materials, parent) {
   parent.add(roofGroup);
 
   // ---- arredi
-  furnish(b, variant);
+  furnish(b, variant, opts);
 
   const objs = b.build(parent);
   return { objs, roomAt, roofGroup };
@@ -194,19 +194,20 @@ function counter(b, x0, z0, x1, z1, h = 0.9) {
 // sedia rivolta verso un punto
 const facing = (x, z, tx, tz) => Math.atan2(tx - x, tz - z);
 
-function furnish(b, v) {
+function furnish(b, v, opts = {}) {
   const A = v.id === 'a';
+  const feature = opts.featureStone || 'stoneIn|0';
   const rnd = rand(21);
 
   // --- soggiorno: parete in pietra a vista, mobile a listelli e TV
   const SW = [0.453, 0.5];
   if (A) {
-    b.box(SW[0], 0, 14.973, SW[1], H - 0.01, 18.284, 'stoneIn|0', { lines: 'f' });
-    b.box(SW[0], 0, 19.126, SW[1], H - 0.01, 20.074, 'stoneIn|0', { lines: 'f' });
-    b.box(SW[0], 0, 18.284, SW[1], 0.5, 19.126, 'stoneIn|0', { lines: 'f' });
-    b.box(SW[0], 2.5, 18.284, SW[1], H - 0.01, 19.126, 'stoneIn|0', { lines: 'f' });
+    b.box(SW[0], 0, 14.973, SW[1], H - 0.01, 18.284, feature, { lines: 'f' });
+    b.box(SW[0], 0, 19.126, SW[1], H - 0.01, 20.074, feature, { lines: 'f' });
+    b.box(SW[0], 0, 18.284, SW[1], 0.5, 19.126, feature, { lines: 'f' });
+    b.box(SW[0], 2.5, 18.284, SW[1], H - 0.01, 19.126, feature, { lines: 'f' });
   } else {
-    b.box(SW[0], 0, 14.973, SW[1], H - 0.01, 20.074, 'stoneIn|0', { lines: 'f' });
+    b.box(SW[0], 0, 14.973, SW[1], H - 0.01, 20.074, feature, { lines: 'f' });
   }
   F.slatConsole(b, SW[1], 18.0, Math.PI / 2, 2.4);
   F.tv(b, SW[1] + 0.02, 16.8, Math.PI / 2);
@@ -219,7 +220,7 @@ function furnish(b, v) {
   F.coffeeTable(b, 1.5, 15.95, 0, 1.0, 1.25);
   F.armchair(b, 1.55, 19.45, Math.PI * 0.85);
   F.pottedPlant(b, 0.95, 15.4, { h: 1.3, r: 0.22, rnd });
-  F.pottedPlant(b, 6.35, 19.7, { h: 1.7, r: 0.27, rnd });
+  F.pottedPlant(b, 6.35, 15.45, { h: 1.7, r: 0.27, rnd });
 
   // --- panca in pietra nella nicchia sud
   b.box(5.55, 0, 20.3, 7.0, 0.45, 20.87, 'travStone|0', { lines: 'f' });

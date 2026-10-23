@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Villa · mockup salotto e cucina</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+      }
+    }
+  </script>
+  <style>
+    :root { --paper: #f3efe7; --ink: #24221f; --soft: #6b655c; --line: rgba(36, 34, 31, 0.18); }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: #1b1a18; color: var(--ink); font-family: Geist, system-ui, sans-serif; overflow: hidden; }
+    #gl { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+    .panel {
+      position: fixed; left: 16px; top: 16px; width: min(380px, calc(100vw - 32px));
+      background: rgba(243, 239, 231, 0.92); backdrop-filter: blur(10px); border-radius: 16px; padding: 18px 20px;
+    }
+    .kicker { font-family: "Geist Mono", monospace; font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--soft); margin: 0 0 6px; }
+    h1 { font-family: "Instrument Serif", serif; font-weight: 400; font-size: 1.9rem; line-height: 1.05; margin: 0 0 10px; }
+    h1 em { color: var(--soft); }
+    .row { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 0; }
+    button {
+      font-family: "Geist Mono", monospace; font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase;
+      border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 999px; padding: 8px 12px; cursor: pointer;
+    }
+    button.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+    ul { margin: 12px 0 0; padding-left: 18px; font-size: 0.86rem; line-height: 1.45; }
+    li { margin: 2px 0; }
+    .hint { font-size: 0.75rem; color: var(--soft); margin: 10px 0 0; }
+    .loader { position: fixed; inset: 0; display: grid; place-items: center; background: var(--paper); font-family: "Geist Mono", monospace; font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; transition: opacity 0.6s; }
+    body.ready .loader { opacity: 0; pointer-events: none; }
+    @media (max-width: 640px) { .panel { top: auto; bottom: 16px; padding: 14px 16px; } ul { display: none; } h1 { font-size: 1.5rem; } }
+  </style>
+</head>
+<body>
+  <canvas id="gl" aria-hidden="true"></canvas>
+  <div class="loader" id="loader">Preparo il mockup <span id="pct">0%</span></div>
+  <section class="panel">
+    <p class="kicker">Villa · soluzione 3-A · mockup</p>
+    <h1>Salotto e cucina, <em>più veri.</em></h1>
+    <div class="row" role="group" aria-label="Vista">
+      <button data-view="salotto" class="on">Salotto</button>
+      <button data-view="cucina">Cucina</button>
+      <button data-view="pietra">Parete in pietra</button>
+    </div>
+    <div class="row" role="group" aria-label="Qualità">
+      <button data-q="prima">Com'è ora</button>
+      <button data-q="dopo" class="on">Con le modifiche</button>
+    </div>
+    <ul id="notes">
+      <li>Sole del pomeriggio da sud con ombre nette: le lamelle del pergolato disegnano righe di luce sul pavimento.</li>
+      <li>Meno luce "di riempimento" uniforme: il soffitto non si illumina più da solo, così luci e ombre hanno contrasto.</li>
+      <li>Occlusione ambientale: angoli, piedi dei mobili e cuscini fanno ombra di contatto.</li>
+      <li>Arredi con il triplo delle suddivisioni: spigoli e cuscini morbidi, niente sfaccettature.</li>
+      <li>In salotto la stessa pietra R06A delle facciate.</li>
+    </ul>
+    <p class="hint">Trascina per guardarti intorno, rotella per avvicinarti.</p>
+  </section>
+  <script type="module" src="js/mockup.js"></script>
+</body>
+</html>
