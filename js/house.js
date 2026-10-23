@@ -219,8 +219,10 @@ function furnish(b, v, opts = {}) {
   F.rug(b, 1.2, 15.4, 4.3, 18.9);
   F.coffeeTable(b, 1.5, 15.95, 0, 1.0, 1.25);
   F.armchair(b, 1.55, 19.45, Math.PI * 0.85);
-  F.pottedPlant(b, 0.95, 15.4, { h: 1.3, r: 0.22, rnd });
-  F.pottedPlant(b, 6.35, 15.45, { h: 1.7, r: 0.27, rnd });
+  // opts.plantSpots: le piante le mette chi chiama (modelli glTF)
+  const plant = (x, z, o) => (opts.plantSpots ? opts.plantSpots.push([x, z, o.h]) : F.pottedPlant(b, x, z, o));
+  plant(0.95, 15.4, { h: 1.3, r: 0.22, rnd });
+  plant(6.35, 15.45, { h: 1.7, r: 0.27, rnd });
 
   // --- panca in pietra nella nicchia sud
   b.box(5.55, 0, 20.3, 7.0, 0.45, 20.87, 'travStone|0', { lines: 'f' });
@@ -234,7 +236,7 @@ function furnish(b, v, opts = {}) {
   if (A) {
     F.stoneBlock(b, 10.0, 18.0, 10.88, 20.1, 0.92, { sink: [10.44, 19.2] });
   }
-  F.pottedPlant(b, A ? 11.25 : 11.1, 20.45, { h: 1.8, r: 0.28, rnd });
+  plant(A ? 11.25 : 11.1, 20.45, { h: 1.8, r: 0.28, rnd });
 
   // --- pranzo
   let lampPts;

@@ -10,6 +10,7 @@ import { reveal, setupRooms, setRoomProgress } from './reveal.js';
 import { buildHouse } from './house.js';
 import { buildNature } from './nature.js';
 import { setQuality } from './furniture.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 // Mockup di qualità per salotto e cucina: stessa casa del sito, con luce,
 // ombre, occlusione ambientale e suddivisioni come proposte. "Com'è ora"
@@ -95,7 +96,9 @@ function build() {
   }
   const hq = quality === 'dopo';
   setQuality(hq ? 3 : 1);
-  const house = buildHouse(variant, materials, world, { featureStone: hq ? 'ashlar|0' : 'stoneIn|0' });
+  const plantSpots = hq ? [] : null;
+  const house = buildHouse(variant, materials, world, { featureStone: hq ? 'ashlar|0' : 'stoneIn|0', plantSpots });
+  if (plantSpots) placePlants(plantSpots);
   house.roofGroup.position.y = 0;
   const nature = buildNature(variant, materials, world);
   nature.trees.forEach((g) => g.scale.setScalar(1));
@@ -107,6 +110,27 @@ function build() {
   });
   setQuality(1);
   applyLook(hq);
+}
+
+// piante e vasi veri da Poly Haven (CC0), scalati all'altezza prevista
+const gltf = new GLTFLoader(manager);
+const modelCache = {};
+function loadModel(name) {
+  modelCache[name] ||= new Promise((ok) => gltf.load(`assets/models/${name}/${name}.json`, (g) => ok(g.scene)));
+  return modelCache[name];
+}
+const PLANT_PICK = ['potted_plant_02', 'potted_plant_04', 'potted_plant_02'];
+function placePlants(spots) {
+  spots.forEach(([x, z, h], i) => loadModel(PLANT_PICK[i % PLANT_PICK.length]).then((src) => {
+    const m = src.clone(true);
+    const box = new THREE.Box3().setFromObject(m);
+    const s = h / (box.max.y - box.min.y);
+    m.scale.setScalar(s);
+    m.position.set(x, -box.min.y * s, z);
+    m.rotation.y = i * 2.1;
+    m.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    world.add(m);
+  }));
 }
 
 function applyLook(hq) {
