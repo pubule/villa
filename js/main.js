@@ -97,7 +97,7 @@ new THREE.TextureLoader(manager).load('assets/sky/late_afternoon.jpg', (tex) => 
 });
 
 // ---------------------------------------------------------------- luci
-const sun = new THREE.DirectionalLight('#ffd7ad', 3.2);
+const sun = new THREE.DirectionalLight('#ffcd92', 3.4);
 sun.position.set(-26, 20, 22).add(new THREE.Vector3(6.5, 0, 13));
 sun.target.position.set(6.5, 0, 13);
 sun.castShadow = true;
@@ -106,7 +106,7 @@ Object.assign(sun.shadow.camera, { left: -26, right: 26, top: 26, bottom: -26, n
 sun.shadow.bias = -0.0004;
 sun.shadow.normalBias = 0.03;
 scene.add(sun, sun.target);
-scene.add(new THREE.HemisphereLight('#f4ede2', '#c9b89a', 0.6));
+scene.add(new THREE.HemisphereLight('#f6e6cc', '#c6a982', 0.6));
 scene.add(new THREE.AmbientLight('#fff4e6', 0.35));
 // luce calda d'interni
 for (const [x, z] of [[3.0, 17.2], [9.4, 18.8], [7.6, 10.8], [5.25, 10]]) {
@@ -312,25 +312,31 @@ function applyCaptions(t) {
 // come Casa Serra: Lenis con inerzia lunga, poi la camera insegue lo scroll
 // con uno smorzamento esponenziale
 const state = { t: 0, target: 0, shown: 0 };
-const CAM_WEIGHT = 3.6;
+const CAM_WEIGHT = 2.2;
 const lenis = new Lenis({ duration: 1.6, easing: (e) => Math.min(1, 1.001 - Math.pow(2, -10 * e)), smoothWheel: true });
 lenis.on('scroll', ScrollTrigger.update);
 gsap.ticker.add((time) => lenis.raf(time * 1000));
 gsap.ticker.lagSmoothing(0);
 gsap.registerPlugin(ScrollTrigger);
+// lo scroll non è lineare: la pianta e il volume restano al ritmo di prima,
+// il giro delle stanze prende più del doppio dello spazio
+const SPLIT_P = 0.266, SPLIT_T = 0.42;
+const pToT = (p) => (p < SPLIT_P ? (p / SPLIT_P) * SPLIT_T : SPLIT_T + ((p - SPLIT_P) / (1 - SPLIT_P)) * (1 - SPLIT_T));
+const tToP = (t) => (t < SPLIT_T ? (t / SPLIT_T) * SPLIT_P : SPLIT_P + ((t - SPLIT_T) / (1 - SPLIT_T)) * (1 - SPLIT_P));
 ScrollTrigger.create({
   trigger: '#track', start: 'top top', end: 'bottom bottom',
-  onUpdate: (st) => { state.target = st.progress; },
+  onUpdate: (st) => { state.target = pToT(st.progress); },
 });
 
 const scrollToT = (t, immediate = false) => {
   const track = document.getElementById('track');
   const max = track.offsetHeight - innerHeight;
+  const y = tToP(t) * max;
   if (immediate) {
-    lenis.scrollTo(t * max, { immediate: true, force: true });
+    lenis.scrollTo(y, { immediate: true, force: true });
     state.target = state.t = t;
   } else {
-    lenis.scrollTo(t * max, { duration: 3.2, easing: (e) => 1 - Math.pow(1 - e, 4) });
+    lenis.scrollTo(y, { duration: 4, easing: (e) => 1 - Math.pow(1 - e, 4) });
   }
 };
 document.querySelectorAll('[data-go]').forEach((el) => el.addEventListener('click', (e) => {
@@ -447,4 +453,7 @@ if (manager.itemsLoaded !== undefined) setTimeout(() => { if (!document.body.cla
 renderer.setAnimationLoop(frame);
 
 // per i test
-window.__villa = { state, applyTimeline, cameraAt, scrollToT, setExplore };
+window.__villa = {
+  state, applyTimeline, cameraAt, scrollToT, setExplore,
+  look: ([x, y, z, tx, ty, tz]) => { camera.position.set(x, y, z); controls?.target.set(tx, ty, tz); },
+};

@@ -204,16 +204,20 @@ export class Batch {
   }
 
   // geometria qualsiasi (cilindri, sfere…) già posizionata in coordinate mondo
-  geometry(geo, matKey, { lines = null, threshold = 30 } = {}) {
+  // ownUV: tiene le UV della geometria (cartoncini delle piante) invece di
+  // quelle planari in metri
+  geometry(geo, matKey, { lines = null, threshold = 30, ownUV = false } = {}) {
     const g = this._group(matKey);
     const ng = geo.index ? geo.toNonIndexed() : geo;
     const p = ng.attributes.position.array, n = ng.attributes.normal.array;
+    const uvA = ownUV ? ng.attributes.uv.array : null;
     const base = g.pos.length / 3;
     for (let i = 0; i < p.length / 3; i++) {
       g.pos.push(p[i * 3], p[i * 3 + 1], p[i * 3 + 2]);
       g.nor.push(n[i * 3], n[i * 3 + 1], n[i * 3 + 2]);
       const ax = Math.abs(n[i * 3]), ay = Math.abs(n[i * 3 + 1]);
-      if (ax > 0.6) g.uv.push(p[i * 3 + 2], p[i * 3 + 1]);
+      if (uvA) g.uv.push(uvA[i * 2], uvA[i * 2 + 1]);
+      else if (ax > 0.6) g.uv.push(p[i * 3 + 2], p[i * 3 + 1]);
       else if (ay > 0.6) g.uv.push(p[i * 3], p[i * 3 + 2]);
       else g.uv.push(p[i * 3], p[i * 3 + 1]);
       g.idx.push(base + i);
