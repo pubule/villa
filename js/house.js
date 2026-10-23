@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Batch } from './builder.js';
 import { H } from './plans.js';
+import * as F from './furniture.js';
 
 // Costruisce la casa di una variante: muri in pietra fuori e intonaco dentro,
 // pavimenti, serramenti, tetto a padiglione in coppi, pergolato, arredi.
@@ -184,142 +185,119 @@ function legs(b, x0, z0, x1, z1, h, mat, t = 0.05, lines = 'f') {
   b.box(x1 - t, 0, z1 - t, x1, h, z1, mat, { lines });
 }
 
-function table(b, x0, z0, x1, z1, mode = 0) {
-  const top = mode ? 'timber|1' : 'oak|0';
-  const leg = mode ? 'metal|1' : 'walnut|0';
-  const L = mode ? 'e' : 'f';
-  b.box(x0, 0.72, z0, x1, 0.76, z1, top, { lines: L });
-  legs(b, x0 + 0.08, z0 + 0.08, x1 - 0.08, z1 - 0.08, 0.72, leg, 0.06, L);
-}
-
-// sedia orientata: (x,z) centro, dir verso cui guarda chi è seduto
-function chair(b, x, z, dir, mode = 0) {
-  const s = 0.23;
-  const seat = mode ? 'timber|1' : 'linen|0';
-  const L = mode ? 'e' : 'f';
-  b.box(x - s, 0.42, z - s, x + s, 0.47, z + s, seat, { lines: L });
-  legs(b, x - s + 0.02, z - s + 0.02, x + s - 0.02, z + s - 0.02, 0.42, mode ? 'metal|1' : 'walnut|0', 0.035, L);
-  const back = mode ? 'timber|1' : 'walnut|0';
-  if (dir === 'n') b.box(x - s, 0.47, z + s - 0.04, x + s, 0.86, z + s, back, { lines: L });
-  if (dir === 's') b.box(x - s, 0.47, z - s, x + s, 0.86, z - s + 0.04, back, { lines: L });
-  if (dir === 'e') b.box(x - s, 0.47, z - s, x - s + 0.04, 0.86, z + s, back, { lines: L });
-  if (dir === 'w') b.box(x + s - 0.04, 0.47, z - s, x + s, 0.86, z + s, back, { lines: L });
-}
-
-function bed(b, x0, z0, x1, z1, headAt = 'n') {
-  b.box(x0, 0.08, z0, x1, 0.32, z1, 'oak|0', { lines: 'f' });
-  b.box(x0 + 0.03, 0.32, z0 + 0.03, x1 - 0.03, 0.56, z1 - 0.03, 'linenWhite|0', { lines: 'f' });
-  if (headAt === 'n') {
-    b.box(x0 + 0.1, 0.56, z0 + 0.08, (x0 + x1) / 2 - 0.05, 0.7, z0 + 0.55, 'linenWhite|0', { lines: 'f' });
-    b.box((x0 + x1) / 2 + 0.05, 0.56, z0 + 0.08, x1 - 0.1, 0.7, z0 + 0.55, 'linenWhite|0', { lines: 'f' });
-    b.box(x0 - 0.02, 0.5, z1 - 0.6, x1 + 0.02, 0.6, z1 - 0.1, 'linenDark|0', { lines: 'f' });
-  }
-}
-
 function counter(b, x0, z0, x1, z1, h = 0.9) {
-  b.box(x0, 0.08, z0, x1, h - 0.04, z1, 'oak|0', { lines: 'f' });
+  b.box(x0, 0.08, z0, x1, h - 0.04, z1, 'lacquer|0', { lines: 'f' });
   b.box(x0, 0, z0 + 0.05, x1, 0.08, z1 - 0.05, 'black|0', { edges: false });
-  b.box(x0 - 0.01, h - 0.04, z0 - 0.01, x1 + 0.01, h, z1 + 0.01, 'botticino|0', { lines: 'f' });
+  b.box(x0 - 0.01, h - 0.04, z0 - 0.01, x1 + 0.01, h, z1 + 0.01, 'travStone|0', { lines: 'f' });
 }
 
-function sanitary(b, x, z, along = 'z') {
-  // wc o bidet sospeso, 0.38 x 0.55
-  if (along === 'z') b.box(x - 0.19, 0.2, z, x + 0.19, 0.42, z + 0.55, 'ceramic|0', { lines: 'f' });
-  else b.box(x, 0.2, z - 0.19, x + 0.55, 0.42, z + 0.19, 'ceramic|0', { lines: 'f' });
-}
+// sedia rivolta verso un punto
+const facing = (x, z, tx, tz) => Math.atan2(tx - x, tz - z);
 
 function furnish(b, v) {
   const A = v.id === 'a';
+  const rnd = rand(21);
 
-  // --- soggiorno: parete in legno a listelli che nasconde la TV, divano a L
-  b.box(0.453, 0, 15.3, 0.98, 0.42, 19.9, 'oak|0', { lines: 'f' });
-  for (let z = 15.3; z < 18.2; z += 0.12) b.box(0.453, 0.42, z, 0.53, 2.75, z + 0.07, 'oak|0', { edges: false });
-  b.box(0.453, 0.42, 15.3, 0.47, 2.75, 18.2, 'walnut|0', { lines: 'f' });
-  b.box(0.54, 1.1, 15.95, 0.58, 1.85, 17.55, 'black|0', { lines: 'f' });
-
-  const sx = A ? 0 : 0.2, sz = A ? 0 : -0.1;
-  b.box(3.55 + sx, 0.1, 15.2 + sz, 4.62 + sx, 0.44, 18.4 + sz, 'linen|0', { lines: 'f' });
-  b.box(4.32 + sx, 0.44, 15.2 + sz, 4.62 + sx, 0.82, 18.4 + sz, 'linen|0', { lines: 'f' });
-  b.box(2.68 + sx, 0.1, 15.2 + sz, 3.55 + sx, 0.44, 16.1 + sz, 'linen|0', { lines: 'f' });
-  b.box(2.68 + sx, 0.44, 15.2 + sz, 4.32 + sx, 0.82, 15.48 + sz, 'linen|0', { lines: 'f' });
-  b.box(3.55 + sx, 0.44, 18.12 + sz, 4.32 + sx, 0.62, 18.4 + sz, 'linen|0', { lines: 'f' });
-  for (const z of [15.7, 16.6, 17.5]) b.box(4.12 + sx, 0.44, z + sz, 4.3 + sx, 0.78, z + 0.7 + sz, 'linenDark|0', { edges: false });
-  // tappeto e tavolino
-  b.box(1.35, 0, 15.5, 4.75, 0.012, 18.9, 'linenDark|0', { lines: 'f' });
-  b.box(1.85, 0.3, 16.4, 2.95, 0.36, 17.6, 'walnut|0', { lines: 'f' });
-  b.box(1.95, 0, 16.5, 2.85, 0.3, 17.5, 'walnut|0', { edges: false });
-  // poltrona
-  b.box(1.4, 0.1, 18.95, 2.2, 0.44, 19.75, 'linenDark|0', { lines: 'f' });
-  b.box(1.4, 0.44, 19.5, 2.2, 0.8, 19.75, 'linenDark|0', { lines: 'f' });
+  // --- soggiorno: parete in pietra a vista, mobile a listelli e TV
+  const SW = [0.453, 0.5];
+  if (A) {
+    b.box(SW[0], 0, 14.973, SW[1], H - 0.01, 18.284, 'stoneIn|0', { lines: 'f' });
+    b.box(SW[0], 0, 19.126, SW[1], H - 0.01, 20.074, 'stoneIn|0', { lines: 'f' });
+    b.box(SW[0], 0, 18.284, SW[1], 0.5, 19.126, 'stoneIn|0', { lines: 'f' });
+    b.box(SW[0], 2.5, 18.284, SW[1], H - 0.01, 19.126, 'stoneIn|0', { lines: 'f' });
+  } else {
+    b.box(SW[0], 0, 14.973, SW[1], H - 0.01, 20.074, 'stoneIn|0', { lines: 'f' });
+  }
+  F.slatConsole(b, SW[1], 18.0, Math.PI / 2, 2.4);
+  F.tv(b, SW[1] + 0.02, 16.8, Math.PI / 2);
+  // divano modulare bianco a L, rivolto verso la TV
+  const sz = A ? 0 : -0.1;
+  for (const z of [15.5, 16.5, 17.5]) F.sofaModule(b, 4.45, z + sz, -Math.PI / 2, 1.0, 1.0);
+  F.sofaModule(b, 3.45, 17.5 + sz, -Math.PI / 2, 1.0, 1.0, { back: false });
+  F.openBoxTable(b, 3.45, 18.55 + sz, 0, 1.0, 0.4, 0.36);
+  F.rug(b, 1.2, 15.4, 4.3, 18.9);
+  F.coffeeTable(b, 1.5, 15.95, 0, 1.0, 1.25);
+  F.armchair(b, 1.55, 19.45, Math.PI * 0.85);
+  F.pottedPlant(b, 0.95, 15.4, { h: 1.3, r: 0.22, rnd });
+  F.pottedPlant(b, 6.35, 19.7, { h: 1.7, r: 0.27, rnd });
 
   // --- panca in pietra nella nicchia sud
-  b.box(5.55, 0, 20.3, 7.0, 0.45, 20.87, 'botticino|0', { lines: 'f' });
+  b.box(5.55, 0, 20.3, 7.0, 0.45, 20.87, 'travStone|0', { lines: 'f' });
 
-  // --- cucina
+  // --- cucina: colonne laccate a tutta altezza, banco e isola in pietra
   const tx = A ? 8.911 : 8.8;
-  b.box(tx, 0, 16.535, 12.543, 2.45, 17.135, 'oak|0', { lines: 'f' });
-  for (let x = tx + 0.6; x < 12.5; x += 0.6) b.segment('f', [x, 0.05, 17.137], [x, 2.4, 17.137]);
+  F.tallUnits(b, tx, 16.535, 12.543, 17.135, H - 0.01, 17.137);
   const cx = A ? 11.9 : 11.75;
-  counter(b, cx, 17.135, 12.543, 20.87);
-  if (A) counter(b, 10.0, 18.0, 10.88, 20.1);
+  F.stoneBlock(b, cx, 17.135, 12.543, 20.87, 0.92, A ? {} : { sink: [cx + 0.38, 19.6] });
+  b.box(cx + 0.06, 0.92, 17.6, 12.48, 0.926, 18.2, 'screen|0', { edges: false });
+  if (A) {
+    F.stoneBlock(b, 10.0, 18.0, 10.88, 20.1, 0.92, { sink: [10.44, 19.2] });
+  }
+  F.pottedPlant(b, A ? 11.25 : 11.1, 20.45, { h: 1.8, r: 0.28, rnd });
 
   // --- pranzo
+  let lampPts;
   if (A) {
-    table(b, 7.85, 18.2, 8.75, 19.93);
-    chair(b, 7.5, 18.65, 'e'); chair(b, 7.5, 19.5, 'e');
-    chair(b, 9.1, 18.65, 'w'); chair(b, 9.1, 19.5, 'w');
-    chair(b, 8.3, 17.85, 's'); chair(b, 8.3, 20.3, 'n');
+    const [ox, oz] = [8.3, 19.06];
+    F.roundTable(b, ox, oz, 0.65);
+    for (let k = 0; k < 5; k++) {
+      const a = Math.PI * 0.1 + (k / 5) * Math.PI * 2;
+      const x = ox + Math.cos(a) * 0.86, z = oz + Math.sin(a) * 0.86;
+      F.woodChair(b, x, z, facing(x, z, ox, oz));
+    }
+    lampPts = [[ox, oz]];
   } else {
-    table(b, 8.4, 18.36, 10.4, 19.24);
-    chair(b, 8.9, 18.0, 's'); chair(b, 9.9, 18.0, 's');
-    chair(b, 8.9, 19.6, 'n'); chair(b, 9.9, 19.6, 'n');
-    chair(b, 8.05, 18.8, 'e'); chair(b, 10.75, 18.8, 'w');
+    F.oakTable(b, 8.4, 18.36, 10.4, 19.24);
+    for (const x of [8.9, 9.9]) {
+      F.woodChair(b, x, 17.98, 0);
+      F.woodChair(b, x, 19.62, Math.PI);
+    }
+    F.woodChair(b, 8.02, 18.8, Math.PI / 2);
+    F.woodChair(b, 10.78, 18.8, -Math.PI / 2);
+    lampPts = [[8.9, 18.8], [9.9, 18.8]];
   }
-  // lampade a sospensione
-  const tcx = A ? 8.3 : 9.4, tcz = A ? 19.06 : 18.8;
-  const lampPts = A ? [[tcx, tcz - 0.45], [tcx, tcz + 0.45]] : [[tcx - 0.5, tcz], [tcx + 0.5, tcz]];
-  for (const [x, z] of lampPts) {
-    b.box(x - 0.005, 1.75, z - 0.005, x + 0.005, H, z + 0.005, 'black|0', { edges: false });
-    const g = new THREE.SphereGeometry(0.17, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2);
-    g.translate(x, 1.62, z);
-    b.geometry(g, 'linenWhite|0', { lines: 'f', threshold: 40 });
-  }
+  for (const [x, z] of lampPts) F.pendant(b, x, z, 1.62, A ? 0.32 : 0.22);
 
-  // --- camera padronale: parete in legno dietro il letto
+  // --- camera padronale: parete in rovere dietro il letto
   b.box(5.927, 0, 9.025, 9.224, 2.9, 9.07, 'oak|0', { lines: 'f' });
-  bed(b, 6.77, 9.07, 8.57, 11.1);
-  b.box(6.2, 0.2, 9.07, 6.65, 0.5, 9.5, 'walnut|0', { lines: 'f' });
-  b.box(8.69, 0.2, 9.07, 9.14, 0.5, 9.5, 'walnut|0', { lines: 'f' });
-  b.box(6.6, 0, 11.4, 9.0, 0.012, 12.3, 'linen|0', { edges: false });
+  F.bed(b, 6.77, 9.07, 0, 1.8, 2.05);
+  F.nightstand(b, 6.42, 9.07, 0);
+  F.nightstand(b, 8.92, 9.07, 0);
+  F.rug(b, 6.4, 11.3, 9.1, 12.4);
+  F.pottedPlant(b, 9.55, 12.25, { h: 1.2, r: 0.2, rnd });
 
   // --- guardaroba
-  b.box(5.927, 0, 6.849, 9.927, 2.7, 7.45, 'oak|0', { lines: 'f' });
-  for (let x = 6.43; x < 9.9; x += 0.5) b.segment('f', [x, 0.05, 7.452], [x, 2.65, 7.452]);
+  F.tallUnits(b, 5.927, 6.849, 9.927, 7.45, 2.7, 7.452);
   b.box(6.3, 0, 8.3, 9.0, 0.9, 8.85, 'oak|0', { lines: 'f' });
 
-  // --- bagno grande
-  counter(b, 1.0, 10.2, 3.6, 10.774, 0.85);
-  sanitary(b, 0.75, 8.175); sanitary(b, 1.35, 8.175);
-  b.box(2.532, 0, 8.175, 4.449, 0.04, 9.12, 'botticino|0', { lines: 'f' });
+  // --- bagno grande: wc e bidet sospesi, mobile con due lavabi, doccia
+  F.wc(b, 0.85, 8.175, 0);
+  F.wc(b, 1.55, 8.175, 0, true);
+  F.vanity(b, 3.6, 10.774, Math.PI, 2.6, 2);
+  b.box(2.532, 0, 8.175, 4.449, 0.04, 9.12, 'travStone|0', { lines: 'f' });
   b.box(2.532, 0.04, 9.08, 3.35, 2.1, 9.1, 'glass|0', { lines: 'f' });
-  b.box(1.0, 1.05, 10.72, 3.6, 1.95, 10.774, 'glass|2', { lines: 'f' });
+  F.rainShower(b, 3.5, 8.65);
 
-  // --- bagno padronale
-  counter(b, 6.1, 12.772, 8.1, 13.3, 0.85);
-  sanitary(b, 8.7, 12.772); sanitary(b, 9.3, 12.772);
-  b.box(8.4, 0, 14.0, 9.927, 0.04, 14.842, 'botticino|0', { lines: 'f' });
+  // --- bagno padronale: lavabo, sanitari, vasca libera e doccia
+  F.vanity(b, 6.1, 12.772, 0, 2.0, 1);
+  F.wc(b, 8.75, 12.772, 0);
+  F.wc(b, 9.4, 12.772, 0, true);
+  F.bathtub(b, 7.1, 14.3, 0, 1.7, 0.8);
+  b.box(8.4, 0, 14.0, 9.927, 0.04, 14.842, 'travStone|0', { lines: 'f' });
   b.box(8.38, 0.04, 14.0, 8.4, 2.1, 14.75, 'glass|0', { lines: 'f' });
+  F.rainShower(b, 9.15, 14.42);
 
   // --- seconda camera
-  bed(b, 1.65, 10.897, 3.25, 12.95);
-  b.box(1.2, 0.2, 10.897, 1.58, 0.5, 11.3, 'walnut|0', { lines: 'f' });
-  b.box(3.32, 0.2, 10.897, 3.7, 0.5, 11.3, 'walnut|0', { lines: 'f' });
-  b.box(0.6, 0, 14.1, 3.7, 2.45, 14.698, 'oak|0', { lines: 'f' });
+  F.bed(b, 1.65, 10.897, 0, 1.6, 2.05);
+  F.nightstand(b, 1.39, 10.897, 0);
+  F.nightstand(b, 3.51, 10.897, 0);
+  F.tallUnits(b, 0.6, 14.1, 3.7, 14.698, 2.6, 14.098);
 
-  // --- lavanderia
+  // --- lavanderia: piano, lavatrice e asciugatrice in colonna
   counter(b, 0.453, 4.606, 1.1, 7.2);
-  b.box(0.5, 0, 7.3, 1.1, 1.75, 7.95, 'ceramic|0', { lines: 'f' });
-  b.box(3.0, 0, 4.606, 3.861, 2.2, 5.3, 'oak|0', { lines: 'f' });
+  F.washer(b, 0.8, 8.048, Math.PI);
+  F.washer(b, 0.8, 8.048, Math.PI, 0.87);
+  F.tallUnits(b, 3.0, 4.606, 3.861, 5.3, 2.2, 5.302);
 
   // --- cantina: scaffali
   for (const y of [0.4, 0.9, 1.4, 1.9]) b.box(0.601, y, 0.5, 1.05, y + 0.03, 4.2, 'timber|0', { lines: 'f' });
@@ -329,17 +307,22 @@ function furnish(b, v) {
   // --- autorimessa: banco da lavoro
   b.box(3.514, 0, 0.8, 4.1, 0.9, 3.6, 'timber|0', { lines: 'f' });
 
-  // --- portico sud: tavolo lungo e panche
+  // --- portico sud: tavolo lungo in legno, sedie e panca
+  F.lineKey('e');
   const [tx0, tz0, tx1, tz1] = v.portico.table;
-  table(b, tx0, tz0, tx1, tz1, 1);
+  b.box(tx0, 0.72, tz0, tx1, 0.77, tz1, 'timber|1', { lines: 'e' });
+  legs(b, tx0 + 0.1, tz0 + 0.1, tx1 - 0.1, tz1 - 0.1, 0.72, 'metal|1', 0.06, 'e');
   b.box(tx0 + 0.2, 0.42, tz0 - 0.55, tx1 - 0.2, 0.46, tz0 - 0.2, 'timber|1', { lines: 'e' });
   legs(b, tx0 + 0.3, tz0 - 0.5, tx1 - 0.3, tz0 - 0.25, 0.42, 'metal|1', 0.05, 'e');
-  for (let x = tx0 + 0.45; x < tx1 - 0.3; x += 0.9) chair(b, x, tz1 + 0.35, 'n', 1);
+  for (let x = tx0 + 0.45; x < tx1 - 0.3; x += 0.9) F.woodChair(b, x, tz1 + 0.38, Math.PI, 'timber|1');
 
-  // --- portico est: due sedute basse
-  for (const z of [9.6, 12.6]) {
-    b.box(11.2, 0.1, z, 12.0, 0.38, z + 0.8, 'timber|1', { lines: 'e' });
-    b.box(11.2, 0.38, z + 0.1, 12.0, 0.48, z + 0.7, 'linen|1', { lines: 'e' });
-    b.box(11.9, 0.38, z, 12.0, 0.75, z + 0.8, 'timber|1', { lines: 'e' });
-  }
+  // --- portico est: due poltrone basse
+  for (const z of [10.0, 13.0]) F.sofaModule(b, 11.15, z + 0.4, Math.PI / 2, 0.8, 0.85, { armL: true, armR: true, mat: 'linen|1' });
+  F.pottedPlant(b, 12.3, 7.6, { h: 1.4, r: 0.32, pot: 'terracotta|1', leaves: 'leavesOlive|1', rnd });
+  F.lineKey('f');
+}
+
+function rand(seed) {
+  let s = seed;
+  return () => ((s = (s * 16807) % 2147483647) / 2147483647);
 }

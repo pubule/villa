@@ -84,7 +84,7 @@ function addUniforms(shader, mode, cap) {
 }
 
 // Materiale di superficie (MeshStandard/Physical)
-export function revealSurface(mat, { mode = 0, cap = 0, sketchShade = 0.08 } = {}) {
+export function revealSurface(mat, { mode = 0, cap = 0, sketchShade = 0.08, twoSided = false } = {}) {
   mat.onBeforeCompile = (shader) => {
     addUniforms(shader, mode, cap);
     patchVertex(shader);
@@ -93,16 +93,16 @@ export function revealSurface(mat, { mode = 0, cap = 0, sketchShade = 0.08 } = {
       .replace('#include <dithering_fragment>', `#include <dithering_fragment>
   // senza taglio le facce posteriori non si vedono mai: scartarle evita che
   // combattano con le facce davanti degli oggetti che si toccano
-  if (!gl_FrontFacing && uCutOn < 0.5) discard;
+  if (!gl_FrontFacing && uCutOn < 0.5 && ${twoSided ? 'false' : 'true'}) discard;
   float rv = revealAmount(vRevW);
-  vec3 drawC = (gl_FrontFacing && uCap < 0.5) ? uPaper : (gl_FrontFacing ? uInk : mix(uPaper, uInk, uCapK));
+  vec3 drawC = ((gl_FrontFacing || ${twoSided ? 'true' : 'false'}) && uCap < 0.5) ? uPaper : (gl_FrontFacing ? uInk : mix(uPaper, uInk, uCapK));
   float lum = clamp(dot(gl_FragColor.rgb, vec3(0.3, 0.59, 0.11)) * 1.6, 0.0, 1.0);
   vec3 sketch = drawC * (1.0 - ${sketchShade.toFixed(3)} + ${sketchShade.toFixed(3)} * lum);
-  if (!gl_FrontFacing) rv = 0.0;
+  if (!gl_FrontFacing && ${twoSided ? 'false' : 'true'}) rv = 0.0;
   gl_FragColor.rgb = mix(sketch, gl_FragColor.rgb, rv);
   gl_FragColor.a = mix(1.0, gl_FragColor.a, rv);`);
   };
-  mat.customProgramCacheKey = () => `rev-${mode}-${cap}-${sketchShade}`;
+  mat.customProgramCacheKey = () => `rev-${mode}-${cap}-${sketchShade}-${twoSided}`;
   return mat;
 }
 

@@ -24,9 +24,24 @@ const BASES = {
   ashlar:  { tex: 'ashlar_r06a', color: '#ffffff', rough: 1, nrm: 0.8 },
   // intonaco esterno bianco burro
   render:  { tex: 'plaster001', color: '#fde8bd', rough: 1, nrm: 0.7 },
-  plaster: { tex: 'plaster001', color: '#fbf7f0', rough: 1, nrm: 0.6 },
-  ceiling: { tex: 'plaster001', color: '#fbf7f0', rough: 1, nrm: 0.4, emissive: '#57524a' },
-  floor:   { tex: 'travertine009', color: '#ffffff', rough: 0.6, nrm: 0.5 },
+  plaster: { tex: 'plaster001', color: '#f5ecdf', rough: 1, nrm: 0.6 },
+  ceiling: { tex: 'plaster001', color: '#f5ecdf', rough: 1, nrm: 0.4, emissive: '#5a5246' },
+  // microcemento beige caldo, come nella foto di riferimento
+  floor:   { tex: 'plaster001', color: '#d9c6a8', rough: 0.55, nrm: 0.12 },
+  // parete in pietra a vista del soggiorno
+  stoneIn: { tex: 'stone_wall', color: '#f0dcbb', rough: 1, nrm: 1.2 },
+  lacquer: { color: '#eee5d6', rough: 0.55 },
+  travStone: { tex: 'travertine009', color: '#f3e8d8', rough: 0.5, nrm: 0.4 },
+  rug:     { tex: 'rough_linen', color: '#d9c7a6', rough: 1, nrm: 1.5 },
+  screen:  { color: '#0d0d0e', rough: 0.12, metal: 0.2 },
+  chrome:  { color: '#d6d2cb', rough: 0.18, metal: 1 },
+  terracotta: { color: '#b9744f', rough: 0.9 },
+  // foglie su cartoncini trasparenti (texture disegnata in canvas)
+  leavesOlive: { canvas: 'olive', color: '#ffffff', rough: 0.85, twoSided: true },
+  leavesBroad: { canvas: 'broad', color: '#ffffff', rough: 0.7, twoSided: true },
+  lavenderCard: { canvas: 'lavender', color: '#ffffff', rough: 0.9, twoSided: true },
+  grassCard: { canvas: 'grass', color: '#ffffff', rough: 0.9, twoSided: true },
+  shrub:   { color: '#7d8a63', rough: 1 },
   oakfloor:{ tex: 'woodfloor051', color: '#f2e6d6', rough: 0.8 },
   garage:  { tex: 'tiles143', color: '#e2dcd2', rough: 0.95 },
   paving:  { tex: 'tiles143', color: '#ffffff', rough: 0.95 },
@@ -93,6 +108,10 @@ export class Materials {
       opts.aoMapIntensity = 0.6;
       opts.roughnessMap = t.arm;
     }
+    if (b.canvas) {
+      opts.map = leafTexture(b.canvas);
+      opts.alphaTest = 0.3;
+    }
     if (b.emissive) opts.emissive = new THREE.Color(b.emissive);
     let m;
     if (b.glass) {
@@ -107,7 +126,7 @@ export class Materials {
     m.polygonOffsetFactor = 1;
     m.polygonOffsetUnits = 1;
     m.shadowSide = THREE.FrontSide;
-    revealSurface(m, { mode });
+    revealSurface(m, { mode, twoSided: !!b.twoSided });
     this.cache.set(k, m);
     return m;
   }
@@ -120,4 +139,109 @@ export class Materials {
     this.lineCache.set(k, m);
     return m;
   }
+}
+
+// Texture disegnate in canvas per le piante: rametti di ulivo, foglie larghe,
+// spighe di lavanda, ciuffi d'erba. Sfondo trasparente, si usano con alphaTest.
+const leafCache = {};
+function leafTexture(kind) {
+  if (leafCache[kind]) return leafCache[kind];
+  const N = 512;
+  const c = document.createElement('canvas');
+  c.width = c.height = N;
+  const g = c.getContext('2d');
+  let seed = { olive: 3, broad: 5, lavender: 7, grass: 9 }[kind] || 1;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const leaf = (x, y, ang, len, wid, col) => {
+    g.save();
+    g.translate(x, y);
+    g.rotate(ang);
+    g.fillStyle = col;
+    g.beginPath();
+    g.moveTo(0, 0);
+    g.quadraticCurveTo(len * 0.5, -wid, len, 0);
+    g.quadraticCurveTo(len * 0.5, wid, 0, 0);
+    g.fill();
+    g.restore();
+  };
+  if (kind === 'olive') {
+    // ciuffo tondo di rametti che partono dal centro: foglie strette, verde
+    // scuro sopra e argento sotto; niente oltre il cerchio, così il bordo
+    // del cartoncino non si vede
+    const tops = ['#5d6a45', '#68744d', '#55613f', '#77825a', '#4f5b3a'];
+    const unders = ['#a9b096', '#b8bea6', '#9da58a'];
+    const C = N / 2;
+    for (let k = 0; k < 60; k++) {
+      const a0 = rnd() * Math.PI * 2;
+      const r0 = rnd() * N * 0.08, r1 = N * (0.3 + rnd() * 0.14);
+      const x = C + Math.cos(a0) * r0, y = C + Math.sin(a0) * r0;
+      const ex = C + Math.cos(a0) * r1, ey = C + Math.sin(a0) * r1;
+      g.strokeStyle = '#6b5d48';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(x, y);
+      g.lineTo(ex, ey);
+      g.stroke();
+      for (let i = 0; i < 16; i++) {
+        const u = 0.15 + rnd() * 0.85;
+        const px = x + (ex - x) * u, py = y + (ey - y) * u;
+        const side = rnd() < 0.5 ? -1 : 1;
+        const col = rnd() < 0.3 ? unders[(rnd() * unders.length) | 0] : tops[(rnd() * tops.length) | 0];
+        const len = N * (0.06 + rnd() * 0.035) * (1 - 0.35 * u);
+        leaf(px, py, a0 + side * (0.45 + rnd() * 0.5), len, N * 0.018, col);
+      }
+    }
+  } else if (kind === 'broad') {
+    // foglie larghe tipo banano o strelitzia, da vaso
+    for (let k = 0; k < 7; k++) {
+      const a = -Math.PI / 2 + (rnd() - 0.5) * 1.6;
+      const len = N * (0.35 + rnd() * 0.12);
+      g.strokeStyle = '#4b6236';
+      g.lineWidth = 4;
+      g.beginPath();
+      g.moveTo(N / 2, N);
+      g.lineTo(N / 2 + Math.cos(a) * N * 0.4, N + Math.sin(a) * N * 0.4);
+      g.stroke();
+      leaf(N / 2 + Math.cos(a) * N * 0.35, N + Math.sin(a) * N * 0.35, a, len, N * 0.07, ['#4f6d38', '#5f7c41', '#47622f'][k % 3]);
+    }
+  } else if (kind === 'lavender') {
+    // steli verde-grigio con spighe viola in cima
+    for (let k = 0; k < 90; k++) {
+      const x0 = N * (0.2 + rnd() * 0.6);
+      const a = -Math.PI / 2 + (x0 / N - 0.5) * 1.4 + (rnd() - 0.5) * 0.3;
+      const len = N * (0.55 + rnd() * 0.3);
+      const ex = x0 + Math.cos(a) * len, ey = N + Math.sin(a) * len;
+      g.strokeStyle = '#7f8b6a';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(x0, N);
+      g.lineTo(ex, ey);
+      g.stroke();
+      for (let i = 0; i < 7; i++) {
+        const u = 0.8 + i * 0.03;
+        g.fillStyle = ['#7d6fa8', '#8c7db6', '#6c5f98'][(rnd() * 3) | 0];
+        g.beginPath();
+        g.ellipse(x0 + (ex - x0) * u, N + (ey - N) * u, 4, 6, a + Math.PI / 2, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+  } else {
+    // ciuffi d'erba ornamentale, verdi e paglia
+    for (let k = 0; k < 120; k++) {
+      const x0 = N * (0.3 + rnd() * 0.4);
+      const a = -Math.PI / 2 + (rnd() - 0.5) * 1.5;
+      const len = N * (0.5 + rnd() * 0.45);
+      g.strokeStyle = ['#a7a26f', '#c2b483', '#8c9561', '#d1c497'][(rnd() * 4) | 0];
+      g.lineWidth = 2.5;
+      g.beginPath();
+      g.moveTo(x0, N);
+      g.quadraticCurveTo(x0 + Math.cos(a) * len * 0.5, N + Math.sin(a) * len * 0.6, x0 + Math.cos(a) * len, N + Math.sin(a) * len * 0.9);
+      g.stroke();
+    }
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  leafCache[kind] = t;
+  return t;
 }

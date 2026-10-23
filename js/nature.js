@@ -64,27 +64,26 @@ export function buildNature(variant, materials, parent) {
     b.box(13.6 + rnd() * 0.3, -0.06, z, 14.6 + rnd() * 0.3, -0.01, z + 0.55, 'paving|1', { lines: 'e' });
   }
 
-  // lavanda davanti al portico
+  // lavanda davanti al portico: cuscini grigio-verdi con spighe viola
   const lav = rand(11);
   for (let x = 0.8; x < variant.portico.x1 - 0.6; x += 0.62) {
-    for (const z of [28.6, 29.3]) {
-      const g = new THREE.IcosahedronGeometry(0.34 + lav() * 0.08, 1);
-      g.scale(1, 0.75, 1);
-      g.translate(x + (lav() - 0.5) * 0.15, 0.2, z + (lav() - 0.5) * 0.15);
-      b.geometry(g, 'lavender|1');
-    }
+    for (const z of [28.6, 29.3]) lavender(b, x + (lav() - 0.5) * 0.15, z + (lav() - 0.5) * 0.15, 0.9 + lav() * 0.3, lav);
   }
-
-
-  // pianta in vaso sul portico est
-  for (const z of [7.6]) {
-    const pot = new THREE.CylinderGeometry(0.32, 0.26, 0.6, 18);
-    pot.translate(12.3, 0.3, z);
-    b.geometry(pot, 'stone|1', { lines: 'e', threshold: 50 });
-    const g = new THREE.IcosahedronGeometry(0.45, 1);
-    g.translate(12.3, 0.95, z);
-    b.geometry(g, 'leaves|1');
+  // macchia mediterranea lungo il lato ovest e a nord-est: lavanda,
+  // cespugli di pittosforo e graminacee, alternati come in un giardino secco
+  const mac = rand(23);
+  for (let z = 1.0; z < 22; z += 1.15) {
+    const x = -1.0 - mac() * 0.6;
+    const k = Math.floor(mac() * 3);
+    if (k === 0) lavender(b, x, z, 1.0 + mac() * 0.3, mac);
+    else if (k === 1) shrub(b, x, z, 0.5 + mac() * 0.25, mac);
+    else grasses(b, x, z, 0.9 + mac() * 0.4, mac);
   }
+  for (const [x, z] of [[11.4, -1.6], [12.4, -2.4], [3.4, -1.8], [2.4, -2.6], [14.2, 18.6], [15.0, 19.6], [14.4, 4.4]]) {
+    lavender(b, x, z, 1.1, mac);
+    grasses(b, x + 0.6, z + 0.3, 1.0, mac);
+  }
+  for (const [x, z] of [[19.2, 9.0], [19.8, 18.2], [-3.4, 12.0], [-3.2, 22.4], [8.0, 30.6]]) shrub(b, x, z, 0.8 + mac() * 0.3, mac);
 
   const objs = b.build(parent);
 
@@ -110,41 +109,114 @@ export function buildNature(variant, materials, parent) {
   return { objs, trees };
 }
 
+// Ulivo: fusto basso, contorto e spesso, che si apre in due o tre branche
+// nodose; la chioma è fatta di cartoncini con rametti disegnati, argentei.
 function olive(b, t, rnd) {
-  // tronco: tre rami che si aprono da un fusto basso e contorto
-  const base = new THREE.Vector3(t.x, 0, t.z);
-  const trunkTop = new THREE.Vector3(t.x + (rnd() - 0.5) * 0.4, t.h * 0.38, t.z + (rnd() - 0.5) * 0.4);
-  const limb = (a, c, r0, r1) => {
-    const dir = new THREE.Vector3().subVectors(c, a);
-    const len = dir.length();
-    const g = new THREE.CylinderGeometry(r1, r0, len, 7, 1);
-    g.translate(0, len / 2, 0);
-    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
-    g.applyQuaternion(q);
-    g.translate(a.x, a.y, a.z);
-    b.geometry(g, 'bark|1');
-  };
-  limb(base, trunkTop, 0.24, 0.17);
+  const sc = t.h / 4.8;
+  const leaders = 2 + Math.floor(rnd() * 2);
   const tips = [];
-  for (let k = 0; k < 3; k++) {
-    const ang = k * 2.1 + rnd();
-    const tip = new THREE.Vector3(
-      t.x + Math.cos(ang) * t.r * 0.45,
-      t.h * (0.62 + rnd() * 0.12),
-      t.z + Math.sin(ang) * t.r * 0.45);
-    limb(trunkTop, tip, 0.13, 0.06);
-    tips.push(tip);
+  const fork = new THREE.Vector3((rnd() - 0.5) * 0.3, 0.9 * sc + rnd() * 0.3, (rnd() - 0.5) * 0.3);
+  // fusto: più largo alla base, con una torsione
+  gnarl(b, [new THREE.Vector3(0, -0.1, 0), new THREE.Vector3((rnd() - 0.5) * 0.25, 0.45 * sc, (rnd() - 0.5) * 0.25), fork], 0.36 * sc, 0.24 * sc, rnd);
+  for (let k = 0; k < leaders; k++) {
+    const a = (k / leaders) * Math.PI * 2 + rnd() * 0.8;
+    const out = t.r * (0.35 + rnd() * 0.15);
+    const mid = new THREE.Vector3(fork.x + Math.cos(a) * out * 0.45, fork.y + 0.8 * sc, fork.z + Math.sin(a) * out * 0.45);
+    const top = new THREE.Vector3(fork.x + Math.cos(a) * out, t.h * (0.62 + rnd() * 0.1), fork.z + Math.sin(a) * out);
+    gnarl(b, [fork, mid, top], 0.17 * sc, 0.07 * sc, rnd);
+    // rami secondari
+    for (let j = 0; j < 3; j++) {
+      const a2 = a + (rnd() - 0.5) * 2.2;
+      const l2 = t.r * (0.3 + rnd() * 0.25);
+      const end = new THREE.Vector3(top.x + Math.cos(a2) * l2, top.y + (0.2 + rnd() * 0.5) * sc, top.z + Math.sin(a2) * l2);
+      gnarl(b, [mid.clone().lerp(top, 0.4 + rnd() * 0.5), end], 0.06 * sc, 0.025 * sc, rnd);
+      tips.push(end);
+    }
+    tips.push(top);
   }
-  // chioma: grappoli di sfere grigio-verdi
-  for (let k = 0; k < 11; k++) {
-    const tip = tips[k % 3];
-    const s = t.r * (0.36 + rnd() * 0.2);
-    const g = new THREE.IcosahedronGeometry(s, 1);
-    g.scale(1, 0.62, 1);
-    g.translate(
-      tip.x + (rnd() - 0.5) * t.r * 0.9,
-      tip.y + (rnd() - 0.2) * t.h * 0.18,
-      tip.z + (rnd() - 0.5) * t.r * 0.9);
-    b.geometry(g, 'leaves|1');
+  // chioma: grappoli di cartoncini intorno alle punte dei rami
+  for (const tip of tips) {
+    const R = t.r * (0.5 + rnd() * 0.15);
+    for (let n = 0; n < 40; n++) {
+      const g = new THREE.PlaneGeometry(1.15 * sc + 0.35, 1.15 * sc + 0.35);
+      g.rotateX((rnd() - 0.5) * Math.PI);
+      g.rotateY(rnd() * Math.PI * 2);
+      const u = rnd() * Math.PI * 2, v = Math.acos(2 * rnd() - 1), rr = Math.cbrt(rnd());
+      g.translate(
+        tip.x + Math.sin(v) * Math.cos(u) * R * rr,
+        tip.y + Math.cos(v) * R * 0.55 * rr - 0.1,
+        tip.z + Math.sin(v) * Math.sin(u) * R * rr);
+      b.geometry(g, 'leavesOlive|1', { ownUV: true });
+    }
+  }
+}
+
+// ramo affusolato lungo una curva, con la corteccia un po' bitorzoluta
+function gnarl(b, pts, r0, r1, rnd) {
+  const curve = new THREE.CatmullRomCurve3(pts);
+  const seg = 14, rad = 9;
+  const g = new THREE.TubeGeometry(curve, seg, 1, rad, false);
+  const pos = g.attributes.position;
+  const ph = rnd() * 10;
+  const c = new THREE.Vector3(), v = new THREE.Vector3();
+  for (let i = 0; i <= seg; i++) {
+    const u = i / seg;
+    curve.getPointAt(u, c);
+    const r = r0 + (r1 - r0) * Math.pow(u, 0.7);
+    for (let j = 0; j <= rad; j++) {
+      const k = i * (rad + 1) + j;
+      v.fromBufferAttribute(pos, k).sub(c);
+      const bump = 1 + 0.22 * Math.sin(j * 1.7 + u * 9 + ph) + 0.12 * Math.sin(j * 3.1 - u * 13);
+      v.multiplyScalar(r * bump).add(c);
+      pos.setXYZ(k, v.x, v.y, v.z);
+    }
+  }
+  g.computeVertexNormals();
+  b.geometry(g, 'bark|1');
+}
+
+// cespuglio di lavanda: cuscino basso e tre cartoncini incrociati di spighe
+function lavender(b, x, z, s, rnd) {
+  const m = new THREE.IcosahedronGeometry(0.28 * s, 1);
+  m.scale(1, 0.55, 1);
+  m.translate(x, 0.08 * s, z);
+  b.geometry(m, 'shrub|1');
+  for (let k = 0; k < 3; k++) {
+    const g = new THREE.PlaneGeometry(0.8 * s, 0.62 * s);
+    g.translate(0, 0.31 * s, 0);
+    g.rotateY((k / 3) * Math.PI + rnd() * 0.4);
+    g.translate(x, 0, z);
+    b.geometry(g, 'lavenderCard|1', { ownUV: true });
+  }
+}
+
+function grasses(b, x, z, s, rnd) {
+  for (let k = 0; k < 3; k++) {
+    const g = new THREE.PlaneGeometry(0.9 * s, 0.95 * s);
+    g.translate(0, 0.47 * s, 0);
+    g.rotateY((k / 3) * Math.PI + rnd() * 0.4);
+    g.translate(x, -0.04, z);
+    b.geometry(g, 'grassCard|1', { ownUV: true });
+  }
+}
+
+// cespuglio sempreverde (pittosforo, mirto): forma morbida e qualche rametto
+function shrub(b, x, z, r, rnd) {
+  const m = new THREE.IcosahedronGeometry(r * 0.8, 2);
+  m.scale(1.15, 0.8, 1);
+  const p = m.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const k = 1 + 0.12 * Math.sin(p.getX(i) * 9 + p.getZ(i) * 7) * Math.cos(p.getY(i) * 11);
+    p.setXYZ(i, p.getX(i) * k, p.getY(i) * k, p.getZ(i) * k);
+  }
+  m.computeVertexNormals();
+  m.translate(x, r * 0.6, z);
+  b.geometry(m, 'shrub|1');
+  for (let k = 0; k < 26; k++) {
+    const g = new THREE.PlaneGeometry(r * 1.1, r * 1.1);
+    g.rotateY(rnd() * Math.PI * 2);
+    g.rotateX((rnd() - 0.5) * 1.2);
+    g.translate(x + (rnd() - 0.5) * r * 1.6, r * (0.5 + rnd() * 0.8), z + (rnd() - 0.5) * r * 1.6);
+    b.geometry(g, 'leavesOlive|1', { ownUV: true });
   }
 }
