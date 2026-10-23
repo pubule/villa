@@ -20,6 +20,11 @@ Dalla pianta: muri, aperture, superfici, posizione di letti, sanitari, cucina, t
 
 Ipotesi mie: altezze (3,00 m interni, davanzali e architravi), materiali, arredi non disegnati (seconda camera, lavanderia), il fatto che il locale grande a nord sia un'autorimessa (ha un'apertura da 5 m) e il piccolo locale accanto una cantina, l'orientamento del giardino e il sole da ovest nel tardo pomeriggio.
 
+## Andata e ritorno con Unreal
+
+- **Sito → Unreal.** In `mockup.html`, "Modifica arredi" → "Esporta per Unreal (GLB)" scarica la casa com'è (muri, tetto, arredi, piante) in un unico GLB. In Unreal si importa con Interchange (File → Import into Level).
+- **Unreal → sito.** In Unreal: File → Export All → glTF binario (`.glb`), con Substrate spento nel progetto, altrimenti i materiali escono neri. Poi "Importa GLB" nel mockup, oppure si mette il file nel repo e si apre `mockup.html?glb=percorso/del/file.glb`.
+
 ## Vederla in locale
 
 Serve un server statico qualsiasi, per esempio:
