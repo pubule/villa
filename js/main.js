@@ -2,10 +2,12 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { VARIANTS, H } from './plans.js';
 import { Materials } from './materials.js';
-import { reveal, setupRooms, setRoomProgress } from './reveal.js';
+import { reveal, setupRooms, setRoomProgress, revealSurface } from './reveal.js';
 import { buildHouse } from './house.js';
 import { buildNature } from './nature.js';
 import { buildSheet } from './sheet.js';
+import { setQuality } from './furniture.js';
+import { createModels } from './models.js';
 
 const params = new URLSearchParams(location.search);
 // la soluzione si sceglie con #a / #b (o ?v=b)
@@ -25,10 +27,11 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPrefere
 renderer.setPixelRatio(params.get('q') === 'low' ? 1 : Math.min(devicePixelRatio, isSmall ? 1.5 : 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.1;
+renderer.toneMapping = THREE.NeutralToneMapping;
+const EXPOSURE_IN = 1.4, EXPOSURE_OUT = 1.0;
+renderer.toneMappingExposure = EXPOSURE_IN;
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.localClippingEnabled = true;
 
 const scene = new THREE.Scene();
@@ -92,37 +95,77 @@ new THREE.TextureLoader(manager).load('assets/sky/late_afternoon.jpg', (tex) => 
   env.needsUpdate = true;
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromEquirectangular(env).texture;
-  scene.environmentIntensity = 1.5;
+  scene.environmentIntensity = 1.0;
   scene.environmentRotation.y = 0.287 * Math.PI * 2;
 });
 
 // ---------------------------------------------------------------- luci
-const sun = new THREE.DirectionalLight('#ffcd92', 3.4);
-sun.position.set(-26, 20, 22).add(new THREE.Vector3(6.5, 0, 13));
+// sole del pomeriggio da sud, alto: entra dalle lamelle del pergolato
+const sun = new THREE.DirectionalLight('#ffc285', 7.5);
+sun.position.set(-4, 9, 20).setLength(40).add(new THREE.Vector3(6.5, 0, 13));
 sun.target.position.set(6.5, 0, 13);
 sun.castShadow = true;
 sun.shadow.mapSize.set(isSmall ? 2048 : 4096, isSmall ? 2048 : 4096);
 Object.assign(sun.shadow.camera, { left: -26, right: 26, top: 26, bottom: -26, near: 1, far: 120 });
-sun.shadow.bias = -0.0004;
-sun.shadow.normalBias = 0.03;
+sun.shadow.bias = -0.0003;
+sun.shadow.normalBias = 0.02;
 scene.add(sun, sun.target);
-scene.add(new THREE.HemisphereLight('#f6e6cc', '#c6a982', 0.6));
-scene.add(new THREE.AmbientLight('#fff4e6', 0.35));
-// luce calda d'interni
-for (const [x, z] of [[3.0, 17.2], [9.4, 18.8], [7.6, 10.8], [5.25, 10]]) {
-  const l = new THREE.PointLight('#ffc98f', 4, 8, 1.4);
-  l.position.set(x, 2.6, z);
-  scene.add(l);
-}
+// poca luce di riempimento: luci e ombre hanno contrasto
+scene.add(new THREE.HemisphereLight('#ffe2bd', '#c6a982', 0.55));
 
 // ---------------------------------------------------------------- modello
 const world = new THREE.Group();
 scene.add(world);
 setupRooms(variant.rooms);
 reveal.outCenter.set(11.7, 15.5, 48);
-const house = buildHouse(variant, materials, world);
+// arredi e piante: modelli glTF veri (Fab, Poly Haven) dove ci sono, il resto
+// disegnato con più suddivisioni. Anche i modelli nascono come disegno e si
+// colorano con la stanza.
+const revealed = new Set();
+const models = createModels({
+  manager,
+  onAdd: (m, _id, kind) => {
+    const outdoor = kind === 'olive' || kind === 'shrub' || kind === 'grass';
+    m.traverse((o) => {
+      if (!o.isMesh) return;
+      for (const mat of [o.material].flat()) {
+        if (revealed.has(mat)) continue;
+        revealed.add(mat);
+        revealSurface(mat, { mode: outdoor ? 1 : 0, twoSided: mat.side === THREE.DoubleSide });
+        if (!outdoor) { mat.clippingPlanes = [clip]; mat.clipShadows = true; }
+      }
+    });
+    if (kind === 'olive') {
+      // l'ulivo cresce dalla base, come quelli disegnati
+      const box = new THREE.Box3().setFromObject(m);
+      const g = new THREE.Group();
+      g.position.set((box.min.x + box.max.x) / 2, 0, (box.min.z + box.max.z) / 2);
+      m.position.sub(g.position);
+      g.add(m);
+      g.scale.setScalar(0.0001);
+      world.add(g);
+      nature.trees.push(g);
+    } else world.add(m);
+  },
+});
+setQuality(3);
+const plantSpots = [];
+const house = buildHouse(variant, materials, world, { featureStone: 'ashlar|0', plantSpots, modelSofa: true, place: models.fabPlace });
+setQuality(1);
+models.fabPlace('sofa', 4.35, 16.7, -Math.PI / 2);
+{
+  const [s0, s1, s2] = plantSpots;
+  if (s0) models.fabPlace('snake', s0[0], s0[1]);
+  if (s1) models.placePlants([s1]);
+  if (s2) models.fabPlace('cereus', s2[0], s2[1]);
+  models.fabPlace('pothos', 0.71, 17.75, 0, 0.56);
+  models.fabPlace('aloe', 2.6, 21.7);
+}
+models.placeModels();
 const roofMats = [];
-const nature = buildNature(variant, materials, world);
+const nature = buildNature(variant, materials, world, { place: models.outdoorPlace, lavender3d: true });
+models.placeOutdoor();
+for (const m of materials.cache.values()) if (m.emissive) m.emissiveIntensity = 0.15;
 for (const [k, m] of [...materials.cache.entries(), ...materials.lineCache.entries()]) {
   if (k.startsWith('leaves') || k.startsWith('bark')) continue;
   if (k.endsWith('|r')) {
@@ -281,6 +324,9 @@ function applyTimeline(t) {
     g.scale.setScalar(Math.max(s, 0.0001));
     g.visible = s > 0.001;
   });
+  // fuori il sole pieno basta; dentro serve più esposizione
+  const inside = smooth(win(t, 0.40, 0.46)) * (1 - smooth(win(t, 0.955, 0.99)));
+  renderer.toneMappingExposure = EXPOSURE_OUT + (EXPOSURE_IN - EXPOSURE_OUT) * inside;
   const out = win(t, 0.29, 0.42);
   reveal.outProgress.value = out >= 1 ? 1000 : out;
   for (const r of variant.rooms) {
@@ -423,6 +469,8 @@ function frame(now = performance.now()) {
     controls.update();
     // piano vicino proporzionato alla distanza: più precisione nel depth buffer
     camera.near = THREE.MathUtils.clamp(camera.position.distanceTo(controls.target) * 0.02, 0.05, 30);
+    const d = camera.position.distanceTo(controls.target);
+    renderer.toneMappingExposure = EXPOSURE_IN - (EXPOSURE_IN - EXPOSURE_OUT) * THREE.MathUtils.smoothstep(d, 4, 14);
   } else {
     state.t += (state.target - state.t) * (1 - Math.exp(-dt * CAM_WEIGHT));
     if (Math.abs(state.target - state.t) < 1e-5) state.t = state.target;

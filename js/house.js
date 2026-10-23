@@ -9,7 +9,7 @@ import * as F from './furniture.js';
 const FLOOR_MAT = { stone: 'floor|0', oak: 'oakfloor|0', garage: 'garage|0' };
 const WALL_IN = { bagno: 'botticino|0', bagno2: 'botticino|0', garage: 'plaster|0' };
 
-export function buildHouse(variant, materials, parent) {
+export function buildHouse(variant, materials, parent, opts = {}) {
   const b = new Batch(materials);
   const rooms = variant.rooms;
 
@@ -135,7 +135,7 @@ export function buildHouse(variant, materials, parent) {
   parent.add(roofGroup);
 
   // ---- arredi
-  furnish(b, variant);
+  furnish(b, variant, opts);
 
   const objs = b.build(parent);
   return { objs, roomAt, roofGroup };
@@ -194,131 +194,162 @@ function counter(b, x0, z0, x1, z1, h = 0.9) {
 // sedia rivolta verso un punto
 const facing = (x, z, tx, tz) => Math.atan2(tx - x, tz - z);
 
-function furnish(b, v) {
+function furnish(b, v, opts = {}) {
+  // opts.piece(gruppo, tipo): ogni arredo diventa un gruppo a sé, che chi chiama
+  // può spostare (mockup); senza, tutto finisce nelle mesh condivise
+  const fb = (name, fn) => {
+    if (!opts.piece) return fn(b);
+    const pb = new Batch(b.materials);
+    pb.lineTag = b.lineTag;
+    const r = fn(pb);
+    const g = new THREE.Group();
+    pb.build(g);
+    opts.piece(g, name);
+    return r;
+  };
+  const P = opts.piece
+    ? new Proxy(F, { get: (t, k) => (typeof t[k] !== 'function' || k === 'lineKey' ? t[k] : (_b, ...a) => fb(k, (pb) => t[k](pb, ...a))) })
+    : F;
   const A = v.id === 'a';
+  const feature = opts.featureStone || 'stoneIn|0';
   const rnd = rand(21);
 
   // --- soggiorno: parete in pietra a vista, mobile a listelli e TV
   const SW = [0.453, 0.5];
   if (A) {
-    b.box(SW[0], 0, 14.973, SW[1], H - 0.01, 18.284, 'stoneIn|0', { lines: 'f' });
-    b.box(SW[0], 0, 19.126, SW[1], H - 0.01, 20.074, 'stoneIn|0', { lines: 'f' });
-    b.box(SW[0], 0, 18.284, SW[1], 0.5, 19.126, 'stoneIn|0', { lines: 'f' });
-    b.box(SW[0], 2.5, 18.284, SW[1], H - 0.01, 19.126, 'stoneIn|0', { lines: 'f' });
+    b.box(SW[0], 0, 14.973, SW[1], H - 0.01, 18.284, feature, { lines: 'f' });
+    b.box(SW[0], 0, 19.126, SW[1], H - 0.01, 20.074, feature, { lines: 'f' });
+    b.box(SW[0], 0, 18.284, SW[1], 0.5, 19.126, feature, { lines: 'f' });
+    b.box(SW[0], 2.5, 18.284, SW[1], H - 0.01, 19.126, feature, { lines: 'f' });
   } else {
-    b.box(SW[0], 0, 14.973, SW[1], H - 0.01, 20.074, 'stoneIn|0', { lines: 'f' });
+    b.box(SW[0], 0, 14.973, SW[1], H - 0.01, 20.074, feature, { lines: 'f' });
   }
-  F.slatConsole(b, SW[1], 18.0, Math.PI / 2, 2.4);
-  F.tv(b, SW[1] + 0.02, 16.8, Math.PI / 2);
+  P.slatConsole(b, SW[1], 18.0, Math.PI / 2, 2.4);
+  // opts.place(tipo, x, z, rot, y): true se l'oggetto lo mette chi chiama (modello glTF)
+  const place = (kind, x, z, rot, y = 0) => !!opts.place?.(kind, x, z, rot, y);
+  if (!place('tv', SW[1] + 0.21, 16.8, Math.PI / 2, 0.56)) P.tv(b, SW[1] + 0.02, 16.8, Math.PI / 2);
   // divano modulare bianco a L, rivolto verso la TV
   const sz = A ? 0 : -0.1;
-  for (const z of [15.5, 16.5, 17.5]) F.sofaModule(b, 4.45, z + sz, -Math.PI / 2, 1.0, 1.0);
-  F.sofaModule(b, 3.45, 17.5 + sz, -Math.PI / 2, 1.0, 1.0, { back: false });
-  F.openBoxTable(b, 3.45, 18.55 + sz, 0, 1.0, 0.4, 0.36);
-  F.rug(b, 1.2, 15.4, 4.3, 18.9);
-  F.coffeeTable(b, 1.5, 15.95, 0, 1.0, 1.25);
-  F.armchair(b, 1.55, 19.45, Math.PI * 0.85);
-  F.pottedPlant(b, 0.95, 15.4, { h: 1.3, r: 0.22, rnd });
-  F.pottedPlant(b, 6.35, 19.7, { h: 1.7, r: 0.27, rnd });
+  // opts.modelSofa: il divano lo mette chi chiama (modello glTF)
+  if (!opts.modelSofa) {
+    for (const z of [15.5, 16.5, 17.5]) P.sofaModule(b, 4.45, z + sz, -Math.PI / 2, 1.0, 1.0);
+    P.sofaModule(b, 3.45, 17.5 + sz, -Math.PI / 2, 1.0, 1.0, { back: false });
+  }
+  P.openBoxTable(b, 3.45, 18.55 + sz, 0, 1.0, 0.4, 0.36);
+  P.rug(b, 1.2, 15.4, 4.3, 18.9);
+  P.coffeeTable(b, 1.5, 15.95, 0, 1.0, 1.25);
+  P.armchair(b, 1.55, 19.45, Math.PI * 0.85);
+  // opts.plantSpots: le piante le mette chi chiama (modelli glTF)
+  const plant = (x, z, o) => (opts.plantSpots ? opts.plantSpots.push([x, z, o.h]) : P.pottedPlant(b, x, z, o));
+  plant(0.95, 15.4, { h: 1.3, r: 0.22, rnd });
+  plant(6.35, 15.45, { h: 1.7, r: 0.27, rnd });
 
   // --- panca in pietra nella nicchia sud
-  b.box(5.55, 0, 20.3, 7.0, 0.45, 20.87, 'travStone|0', { lines: 'f' });
+  fb('stoneBench', (b) => b.box(5.55, 0, 20.3, 7.0, 0.45, 20.87, 'travStone|0', { lines: 'f' }));
 
   // --- cucina: colonne laccate a tutta altezza, banco e isola in pietra
   const tx = A ? 8.911 : 8.8;
-  F.tallUnits(b, tx, 16.535, 12.543, 17.135, H - 0.01, 17.137);
+  P.tallUnits(b, tx, 16.535, 12.543, 17.135, H - 0.01, 17.137);
   const cx = A ? 11.9 : 11.75;
-  F.stoneBlock(b, cx, 17.135, 12.543, 20.87, 0.92, A ? {} : { sink: [cx + 0.38, 19.6] });
-  b.box(cx + 0.06, 0.92, 17.6, 12.48, 0.926, 18.2, 'screen|0', { edges: false });
+  fb('counter', (b) => {
+    F.stoneBlock(b, cx, 17.135, 12.543, 20.87, 0.92, A ? {} : { sink: [cx + 0.38, 19.6] });
+    b.box(cx + 0.06, 0.92, 17.6, 12.48, 0.926, 18.2, 'screen|0', { edges: false });
+  });
   if (A) {
-    F.stoneBlock(b, 10.0, 18.0, 10.88, 20.1, 0.92, { sink: [10.44, 19.2] });
+    P.stoneBlock(b, 10.0, 18.0, 10.88, 20.1, 0.92, { sink: [10.44, 19.2], faucet: !place('tap', 10.44, 18.94, Math.PI / 2, 0.92) });
   }
-  F.pottedPlant(b, A ? 11.25 : 11.1, 20.45, { h: 1.8, r: 0.28, rnd });
+  plant(A ? 11.25 : 11.1, 20.45, { h: 1.8, r: 0.28, rnd });
 
   // --- pranzo
   let lampPts;
   if (A) {
     const [ox, oz] = [8.3, 19.06];
-    F.roundTable(b, ox, oz, 0.65);
+    P.roundTable(b, ox, oz, 0.65);
     for (let k = 0; k < 5; k++) {
       const a = Math.PI * 0.1 + (k / 5) * Math.PI * 2;
       const x = ox + Math.cos(a) * 0.86, z = oz + Math.sin(a) * 0.86;
-      F.woodChair(b, x, z, facing(x, z, ox, oz));
+      if (!place('chair', x, z, facing(x, z, ox, oz))) P.woodChair(b, x, z, facing(x, z, ox, oz));
     }
     lampPts = [[ox, oz]];
   } else {
-    F.oakTable(b, 8.4, 18.36, 10.4, 19.24);
+    P.oakTable(b, 8.4, 18.36, 10.4, 19.24);
     for (const x of [8.9, 9.9]) {
-      F.woodChair(b, x, 17.98, 0);
-      F.woodChair(b, x, 19.62, Math.PI);
+      P.woodChair(b, x, 17.98, 0);
+      P.woodChair(b, x, 19.62, Math.PI);
     }
-    F.woodChair(b, 8.02, 18.8, Math.PI / 2);
-    F.woodChair(b, 10.78, 18.8, -Math.PI / 2);
+    P.woodChair(b, 8.02, 18.8, Math.PI / 2);
+    P.woodChair(b, 10.78, 18.8, -Math.PI / 2);
     lampPts = [[8.9, 18.8], [9.9, 18.8]];
   }
-  for (const [x, z] of lampPts) F.pendant(b, x, z, 1.62, A ? 0.32 : 0.22);
+  for (const [x, z] of lampPts) P.pendant(b, x, z, 1.62, A ? 0.32 : 0.22);
 
   // --- camera padronale: parete in rovere dietro il letto
   b.box(5.927, 0, 9.025, 9.224, 2.9, 9.07, 'oak|0', { lines: 'f' });
-  F.bed(b, 6.77, 9.07, 0, 1.8, 2.05);
-  F.nightstand(b, 6.42, 9.07, 0);
-  F.nightstand(b, 8.92, 9.07, 0);
-  F.rug(b, 6.4, 11.3, 9.1, 12.4);
-  F.pottedPlant(b, 9.55, 12.25, { h: 1.2, r: 0.2, rnd });
+  P.bed(b, 6.77, 9.07, 0, 1.8, 2.05);
+  P.nightstand(b, 6.42, 9.07, 0);
+  P.nightstand(b, 8.92, 9.07, 0);
+  P.rug(b, 6.4, 11.3, 9.1, 12.4);
+  P.pottedPlant(b, 9.55, 12.25, { h: 1.2, r: 0.2, rnd });
 
   // --- guardaroba
-  F.tallUnits(b, 5.927, 6.849, 9.927, 7.45, 2.7, 7.452);
-  b.box(6.3, 0, 8.3, 9.0, 0.9, 8.85, 'oak|0', { lines: 'f' });
+  P.tallUnits(b, 5.927, 6.849, 9.927, 7.45, 2.7, 7.452);
+  fb('dresser', (b) => b.box(6.3, 0, 8.3, 9.0, 0.9, 8.85, 'oak|0', { lines: 'f' }));
 
   // --- bagno grande: wc e bidet sospesi, mobile con due lavabi, doccia
-  F.wc(b, 0.85, 8.175, 0);
-  F.wc(b, 1.55, 8.175, 0, true);
-  F.vanity(b, 3.6, 10.774, Math.PI, 2.6, 2);
+  P.wc(b, 0.85, 8.175, 0);
+  P.wc(b, 1.55, 8.175, 0, true);
+  P.vanity(b, 3.6, 10.774, Math.PI, 2.6, 2);
   b.box(2.532, 0, 8.175, 4.449, 0.04, 9.12, 'travStone|0', { lines: 'f' });
   b.box(2.532, 0.04, 9.08, 3.35, 2.1, 9.1, 'glass|0', { lines: 'f' });
-  F.rainShower(b, 3.5, 8.65);
+  P.rainShower(b, 3.5, 8.65);
 
   // --- bagno padronale: lavabo, sanitari, vasca libera e doccia
-  F.vanity(b, 6.1, 12.772, 0, 2.0, 1);
-  F.wc(b, 8.75, 12.772, 0);
-  F.wc(b, 9.4, 12.772, 0, true);
-  F.bathtub(b, 7.1, 14.3, 0, 1.7, 0.8);
+  P.vanity(b, 6.1, 12.772, 0, 2.0, 1);
+  P.wc(b, 8.75, 12.772, 0);
+  P.wc(b, 9.4, 12.772, 0, true);
+  P.bathtub(b, 7.1, 14.3, 0, 1.7, 0.8);
   b.box(8.4, 0, 14.0, 9.927, 0.04, 14.842, 'travStone|0', { lines: 'f' });
   b.box(8.38, 0.04, 14.0, 8.4, 2.1, 14.75, 'glass|0', { lines: 'f' });
-  F.rainShower(b, 9.15, 14.42);
+  P.rainShower(b, 9.15, 14.42);
 
   // --- seconda camera
-  F.bed(b, 1.65, 10.897, 0, 1.6, 2.05);
-  F.nightstand(b, 1.39, 10.897, 0);
-  F.nightstand(b, 3.51, 10.897, 0);
-  F.tallUnits(b, 0.6, 14.1, 3.7, 14.698, 2.6, 14.098);
+  P.bed(b, 1.65, 10.897, 0, 1.6, 2.05);
+  P.nightstand(b, 1.39, 10.897, 0);
+  P.nightstand(b, 3.51, 10.897, 0);
+  P.tallUnits(b, 0.6, 14.1, 3.7, 14.698, 2.6, 14.098);
 
   // --- lavanderia: piano, lavatrice e asciugatrice in colonna
   counter(b, 0.453, 4.606, 1.1, 7.2);
-  F.washer(b, 0.8, 8.048, Math.PI);
-  F.washer(b, 0.8, 8.048, Math.PI, 0.87);
-  F.tallUnits(b, 3.0, 4.606, 3.861, 5.3, 2.2, 5.302);
+  P.washer(b, 0.8, 8.048, Math.PI);
+  P.washer(b, 0.8, 8.048, Math.PI, 0.87);
+  P.tallUnits(b, 3.0, 4.606, 3.861, 5.3, 2.2, 5.302);
 
   // --- cantina: scaffali
-  for (const y of [0.4, 0.9, 1.4, 1.9]) b.box(0.601, y, 0.5, 1.05, y + 0.03, 4.2, 'timber|0', { lines: 'f' });
-  b.box(0.601, 0, 0.5, 1.05, 2.2, 0.53, 'timber|0', { edges: false });
-  b.box(0.601, 0, 4.17, 1.05, 2.2, 4.2, 'timber|0', { edges: false });
+  fb('shelves', (b) => {
+    for (const y of [0.4, 0.9, 1.4, 1.9]) b.box(0.601, y, 0.5, 1.05, y + 0.03, 4.2, 'timber|0', { lines: 'f' });
+    b.box(0.601, 0, 0.5, 1.05, 2.2, 0.53, 'timber|0', { edges: false });
+    b.box(0.601, 0, 4.17, 1.05, 2.2, 4.2, 'timber|0', { edges: false });
+  });
 
   // --- autorimessa: banco da lavoro
-  b.box(3.514, 0, 0.8, 4.1, 0.9, 3.6, 'timber|0', { lines: 'f' });
+  fb('bench', (b) => b.box(3.514, 0, 0.8, 4.1, 0.9, 3.6, 'timber|0', { lines: 'f' }));
 
   // --- portico sud: tavolo lungo in legno, sedie e panca
   F.lineKey('e');
   const [tx0, tz0, tx1, tz1] = v.portico.table;
-  b.box(tx0, 0.72, tz0, tx1, 0.77, tz1, 'timber|1', { lines: 'e' });
-  legs(b, tx0 + 0.1, tz0 + 0.1, tx1 - 0.1, tz1 - 0.1, 0.72, 'metal|1', 0.06, 'e');
-  b.box(tx0 + 0.2, 0.42, tz0 - 0.55, tx1 - 0.2, 0.46, tz0 - 0.2, 'timber|1', { lines: 'e' });
-  legs(b, tx0 + 0.3, tz0 - 0.5, tx1 - 0.3, tz0 - 0.25, 0.42, 'metal|1', 0.05, 'e');
-  for (let x = tx0 + 0.45; x < tx1 - 0.3; x += 0.9) F.woodChair(b, x, tz1 + 0.38, Math.PI, 'timber|1');
+  fb('outTable', (b) => {
+    b.box(tx0, 0.72, tz0, tx1, 0.77, tz1, 'timber|1', { lines: 'e' });
+    legs(b, tx0 + 0.1, tz0 + 0.1, tx1 - 0.1, tz1 - 0.1, 0.72, 'metal|1', 0.06, 'e');
+  });
+  fb('outBench', (b) => {
+    b.box(tx0 + 0.2, 0.42, tz0 - 0.55, tx1 - 0.2, 0.46, tz0 - 0.2, 'timber|1', { lines: 'e' });
+    legs(b, tx0 + 0.3, tz0 - 0.5, tx1 - 0.3, tz0 - 0.25, 0.42, 'metal|1', 0.05, 'e');
+  });
+  for (let x = tx0 + 0.45; x < tx1 - 0.3; x += 0.9) P.woodChair(b, x, tz1 + 0.38, Math.PI, 'timber|1');
 
   // --- portico est: due poltrone basse
-  for (const z of [10.0, 13.0]) F.sofaModule(b, 11.15, z + 0.4, Math.PI / 2, 0.8, 0.85, { armL: true, armR: true, mat: 'linen|1' });
-  F.pottedPlant(b, 12.3, 7.6, { h: 1.4, r: 0.32, pot: 'terracotta|1', leaves: 'leavesOlive|1', rnd });
+  for (const z of [10.0, 13.0]) P.sofaModule(b, 11.15, z + 0.4, Math.PI / 2, 0.8, 0.85, { armL: true, armR: true, mat: 'linen|1' });
+  P.pottedPlant(b, 12.3, 7.6, { h: 1.4, r: 0.32, pot: 'terracotta|1', leaves: 'leavesOlive|1', rnd });
   F.lineKey('f');
 }
 
