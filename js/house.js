@@ -213,8 +213,11 @@ function furnish(b, v, opts = {}) {
   F.tv(b, SW[1] + 0.02, 16.8, Math.PI / 2);
   // divano modulare bianco a L, rivolto verso la TV
   const sz = A ? 0 : -0.1;
-  for (const z of [15.5, 16.5, 17.5]) F.sofaModule(b, 4.45, z + sz, -Math.PI / 2, 1.0, 1.0);
-  F.sofaModule(b, 3.45, 17.5 + sz, -Math.PI / 2, 1.0, 1.0, { back: false });
+  // opts.modelSofa: il divano lo mette chi chiama (modello glTF)
+  if (!opts.modelSofa) {
+    for (const z of [15.5, 16.5, 17.5]) F.sofaModule(b, 4.45, z + sz, -Math.PI / 2, 1.0, 1.0);
+    F.sofaModule(b, 3.45, 17.5 + sz, -Math.PI / 2, 1.0, 1.0, { back: false });
+  }
   F.openBoxTable(b, 3.45, 18.55 + sz, 0, 1.0, 0.4, 0.36);
   F.rug(b, 1.2, 15.4, 4.3, 18.9);
   F.coffeeTable(b, 1.5, 15.95, 0, 1.0, 1.25);

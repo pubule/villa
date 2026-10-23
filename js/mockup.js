@@ -11,6 +11,7 @@ import { buildHouse } from './house.js';
 import { buildNature } from './nature.js';
 import { setQuality } from './furniture.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
 // Mockup di qualità per salotto e cucina: stessa casa del sito, con luce,
 // ombre, occlusione ambientale e suddivisioni come proposte. "Com'è ora"
@@ -97,8 +98,9 @@ function build() {
   const hq = quality === 'dopo';
   setQuality(hq ? 3 : 1);
   const plantSpots = hq ? [] : null;
-  const house = buildHouse(variant, materials, world, { featureStone: hq ? 'ashlar|0' : 'stoneIn|0', plantSpots });
+  const house = buildHouse(variant, materials, world, { featureStone: hq ? 'ashlar|0' : 'stoneIn|0', plantSpots, modelSofa: hq });
   if (plantSpots) placePlants(plantSpots);
+  if (hq) placeModels();
   house.roofGroup.position.y = 0;
   const nature = buildNature(variant, materials, world);
   nature.trees.forEach((g) => g.scale.setScalar(1));
@@ -114,9 +116,10 @@ function build() {
 
 // piante e vasi veri da Poly Haven (CC0), scalati all'altezza prevista
 const gltf = new GLTFLoader(manager);
+gltf.setMeshoptDecoder(MeshoptDecoder);
 const modelCache = {};
 function loadModel(name) {
-  modelCache[name] ||= new Promise((ok) => gltf.load(`assets/models/${name}/${name}.json`, (g) => ok(g.scene)));
+  modelCache[name] ||= new Promise((ok) => gltf.load(name.startsWith('fab/') ? `assets/models/${name}.json` : `assets/models/${name}/${name}.json`, (g) => ok(g.scene)));
   return modelCache[name];
 }
 const PLANT_PICK = ['potted_plant_02', 'potted_plant_04', 'potted_plant_02'];
@@ -131,6 +134,22 @@ function placePlants(spots) {
     m.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     world.add(m);
   }));
+}
+
+// arredi da Fab: [file, x, z, rotazione, specchiato, scala]
+const FAB = [
+  ['fab/lshapedsofa', 4.5, 16.75, -Math.PI / 2, true, 0.66],
+];
+function placeModels() {
+  for (const [name, x, z, rot, mirror, k = 1] of FAB) loadModel(name).then((src) => {
+    const m = src.clone(true);
+    m.scale.set(mirror ? -k : k, k, k);
+    m.rotation.y = rot;
+    const box = new THREE.Box3().setFromObject(m);
+    m.position.set(x, -box.min.y, z);
+    m.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    world.add(m);
+  });
 }
 
 function applyLook(hq) {
@@ -166,6 +185,7 @@ function applyLook(hq) {
 const VIEWS = {
   salotto: { pos: [6.3, 1.5, 19.7], tgt: [1.2, 0.9, 16.2], fov: 62 },
   cucina: { pos: [5.4, 1.55, 17.2], tgt: [10.8, 0.95, 19.6], fov: 62 },
+  divano: { pos: [1.4, 1.45, 19.8], tgt: [5.2, 0.6, 15.8], fov: 60 },
   pietra: { pos: [4.2, 1.45, 18.6], tgt: [0.5, 1.3, 16.6], fov: 55 },
 };
 const camP = params.get('cam')?.split(',').map(Number);
