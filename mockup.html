@@ -42,6 +42,7 @@
     .libbox summary { cursor: pointer; font-size: 0.8rem; font-weight: 500; }
     .libhead { font-family: "Geist Mono", monospace; font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--soft); margin: 10px 0 0; }
     .row.lib { margin-top: 4px; gap: 4px; }
+    #verName, #verList { flex: 1; min-width: 0; font: inherit; font-size: 0.8rem; padding: 7px 10px; border: 1px solid var(--line); border-radius: 999px; background: #fff; color: var(--ink); }
     .row.lib button { padding: 5px 9px; font-size: 0.62rem; }
     button:disabled { opacity: 0.5; cursor: wait; }
     body.editing #editbar { display: block; }
@@ -90,10 +91,28 @@
         <button id="resetAll">Ripristina tutto</button>
       </div>
       <details class="libbox" open>
+        <summary>Versioni: salva e confronta disposizioni</summary>
+        <div class="row">
+          <input id="verName" type="text" placeholder="Nome, es. divano verso il camino" aria-label="Nome della versione" />
+          <button id="verSave">Salva</button>
+        </div>
+        <div class="row">
+          <select id="verList" aria-label="Versioni salvate"></select>
+          <button id="verLoad">Carica</button>
+          <button id="verDel">Elimina</button>
+        </div>
+        <div class="row">
+          <button id="verExport">Esporta file</button>
+          <button id="verImport">Importa file</button>
+          <input id="verFile" type="file" accept="application/json,.json" hidden />
+        </div>
+        <p class="hint" id="verMsg"></p>
+      </details>
+      <details class="libbox" open>
         <summary>Libreria: aggiungi davanti a te</summary>
         <div id="library"></div>
       </details>
-      <p class="hint">Tasti: G sposta, R ruota, S ridimensiona, Esc deseleziona. Le modifiche restano salvate in questo browser.</p>
+      <p class="hint">Tasti: G sposta, R ruota, S ridimensiona, Canc toglie, Esc deseleziona. Le modifiche restano salvate in questo browser.</p>
     </div>
     <ul id="notes">
       <li>Sole del pomeriggio da sud con ombre nette: le lamelle del pergolato disegnano righe di luce sul pavimento.</li>

@@ -391,6 +391,83 @@ async function addFromLibrary(key, id, at) {
   g.userData.label = spec.label;
   return g;
 }
+// ---------------------------------------------------------------- versioni
+// Disposizioni con un nome, nel browser; si possono anche esportare in un file
+// e reimportare (per passarle a qualcuno o tenerle al sicuro).
+const VERS_KEY = 'villa-mockup-versioni';
+let versions = {};
+try { versions = JSON.parse(localStorage.getItem(VERS_KEY) || '{}'); } catch { versions = {}; }
+const verSel = document.getElementById('verList');
+const verName = document.getElementById('verName');
+const verMsg = document.getElementById('verMsg');
+function saveVersions() {
+  try { localStorage.setItem(VERS_KEY, JSON.stringify(versions)); } catch { /* niente salvataggio */ }
+}
+function listVersions(pick) {
+  verSel.innerHTML = '';
+  const names = Object.keys(versions).sort((a, b) => versions[b].at - versions[a].at);
+  for (const n of names) {
+    const o = document.createElement('option');
+    o.value = n;
+    o.textContent = `${n} · ${new Date(versions[n].at).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' })}`;
+    verSel.append(o);
+  }
+  if (pick) verSel.value = pick;
+  verSel.disabled = !names.length;
+}
+function loadLayout(data) {
+  saved = JSON.parse(JSON.stringify(data || {}));
+  persist();
+  build();
+}
+const say = (t) => { verMsg.textContent = t; };
+document.getElementById('verSave').addEventListener('click', () => {
+  const n = verName.value.trim() || `Versione ${Object.keys(versions).length + 1}`;
+  versions[n] = { at: Date.now(), data: JSON.parse(JSON.stringify(saved)) };
+  saveVersions();
+  listVersions(n);
+  verName.value = '';
+  say(`Salvata "${n}".`);
+});
+document.getElementById('verLoad').addEventListener('click', () => {
+  const n = verSel.value;
+  if (!versions[n]) return;
+  loadLayout(versions[n].data);
+  say(`Caricata "${n}".`);
+});
+document.getElementById('verDel').addEventListener('click', () => {
+  const n = verSel.value;
+  if (!versions[n]) return;
+  delete versions[n];
+  saveVersions();
+  listVersions();
+  say(`Eliminata "${n}".`);
+});
+document.getElementById('verExport').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify({ villa: 'arredi', current: saved, versions }, null, 1)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `villa-arredi-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+});
+const verFile = document.getElementById('verFile');
+document.getElementById('verImport').addEventListener('click', () => verFile.click());
+verFile.addEventListener('change', async () => {
+  const f = verFile.files[0];
+  verFile.value = '';
+  if (!f) return;
+  try {
+    const j = JSON.parse(await f.text());
+    Object.assign(versions, j.versions || {});
+    saveVersions();
+    listVersions();
+    if (j.current) loadLayout(j.current);
+    say(`Importate ${Object.keys(j.versions || {}).length} versioni.`);
+  } catch { say('Il file non è una disposizione valida.'); }
+});
+listVersions();
+
 function restoreAdded() {
   for (const a of saved.added || []) if (LIB[a.lib]) addFromLibrary(a.lib, a.id, a.at);
 }
@@ -430,12 +507,13 @@ canvas.addEventListener('pointerup', (e) => {
   selectObj(o || null);
 });
 addEventListener('keydown', (e) => {
-  if (!editing) return;
+  if (!editing || /input|select|textarea/i.test(e.target.tagName)) return;
   const k = e.key.toLowerCase();
   if (k === 'g' || k === 'w') setMode('translate');
   else if (k === 'r' || k === 'e') setMode('rotate');
   else if (k === 's') setMode('scale');
   else if (k === 'escape') selectObj(null);
+  else if ((k === 'delete' || k === 'backspace') && tc.object) document.getElementById('remove').click();
 });
 
 function applyLook(hq) {
