@@ -12,6 +12,8 @@ import { buildNature } from './nature.js';
 import { setQuality } from './furniture.js';
 import { createModels } from './models.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 // Mockup di qualità per salotto e cucina: stessa casa del sito, con luce,
 // ombre, occlusione ambientale e suddivisioni come proposte. "Com'è ora"
@@ -477,6 +479,52 @@ verFile.addEventListener('change', async () => {
 });
 listVersions();
 
+// ---------------------------------------------------------------- Unreal
+// Andata: la casa com'è ora (muri, tetto, arredi, piante) in un unico GLB per Unreal.
+// Ritorno: un GLB esportato da Unreal sostituisce la casa (file o ?glb=percorso).
+document.getElementById('glbExport').addEventListener('click', async (e) => {
+  const b = e.currentTarget;
+  b.disabled = true;
+  say('Preparo il GLB…');
+  selectObj(null);
+  // JPEG invece di PNG (il GLB passa da ~300 a ~80 MB); PNG solo dove serve la trasparenza delle foglie
+  world.traverse((o) => {
+    for (const m of [o.material].flat()) for (const k in m || {}) {
+      const t = m[k];
+      if (t?.isTexture) t.userData.mimeType = k === 'map' && (m.transparent || m.alphaTest > 0) ? 'image/png' : 'image/jpeg';
+    }
+  });
+  const glb = await new GLTFExporter().parseAsync(world, { binary: true, maxTextureSize: 2048 });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([glb], { type: 'model/gltf-binary' }));
+  a.download = `villa-3a-${new Date().toISOString().slice(0, 10)}.glb`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  b.disabled = false;
+  say(`GLB pronto (${(glb.byteLength / 1e6).toFixed(1)} MB).`);
+});
+async function loadGlb(url) {
+  const gltf = await new GLTFLoader().loadAsync(url);
+  tc.detach();
+  selectObj(null);
+  movables.length = 0;
+  for (const o of [...world.children]) world.remove(o);
+  gltf.scene.traverse((o) => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; } });
+  world.add(gltf.scene);
+  renderer.shadowMap.needsUpdate = true;
+  document.body.classList.add('ready');
+}
+const glbFile = document.getElementById('glbFile');
+document.getElementById('glbImport').addEventListener('click', () => glbFile.click());
+glbFile.addEventListener('change', async () => {
+  const f = glbFile.files[0];
+  glbFile.value = '';
+  if (!f) return;
+  const url = URL.createObjectURL(f);
+  try { await loadGlb(url); say(`Caricato ${f.name}.`); } catch { say('Il file non è un GLB valido.'); }
+  URL.revokeObjectURL(url);
+});
+
 function restoreAdded() {
   for (const a of saved.added || []) if (LIB[a.lib]) addFromLibrary(a.lib, a.id, a.at);
 }
@@ -604,6 +652,7 @@ addEventListener('resize', () => {
 
 quality = params.get('quality') === 'prima' ? 'prima' : 'dopo';
 build();
+if (params.get('glb')) loadGlb(params.get('glb'));
 setView(view, false);
 let frames = 0;
 manager.onLoad = () => { document.body.classList.add('ready'); };
