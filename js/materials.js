@@ -62,6 +62,9 @@ const BASES = {
   leaves:  { color: '#8a9670', rough: 0.9 },
   bark:    { color: '#6e6355', rough: 1 },
   lavender:{ color: '#8f88a8', rough: 1 },
+  lavLeaf: { color: '#8f9c86', rough: 0.95, twoSided: true },
+  lavStem: { color: '#7d8866', rough: 1 },
+  lavFlower: { color: '#7562a8', rough: 0.85 },
   glass:   { color: '#cfdcdc', rough: 0.05, metal: 0.0, glass: true },
   water:   { color: '#7fa3a5', rough: 0.05 },
 };

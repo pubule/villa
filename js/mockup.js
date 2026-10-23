@@ -11,6 +11,7 @@ import { buildHouse } from './house.js';
 import { buildNature } from './nature.js';
 import { setQuality } from './furniture.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
 
 // Mockup di qualità per salotto e cucina: stessa casa del sito, con luce,
 // ombre, occlusione ambientale e suddivisioni come proposte. "Com'è ora"
@@ -90,6 +91,10 @@ reveal.capK.value = 0;
 
 let quality = 'dopo';
 function build() {
+  tc.detach();
+  selectObj(null);
+  movables.length = 0;
+  for (const k in counters) delete counters[k];
   for (const o of [...world.children]) {
     world.remove(o);
     o.traverse?.((m) => m.geometry?.dispose());
@@ -111,10 +116,12 @@ function build() {
     fabPlace('pothos', 0.71, 17.75, 0, 0.56);
     fabPlace('aloe', 2.6, 21.7);
     placeModels();
+    restoreAdded();
   }
   house.roofGroup.position.y = 0;
-  const nature = buildNature(variant, materials, world);
+  const nature = buildNature(variant, materials, world, hq ? { place: outdoorPlace, lavender3d: true } : {});
   nature.trees.forEach((g) => g.scale.setScalar(1));
+  if (hq) placeOutdoor();
   const natureMeshes = new Set();
   if (params.get('treeshadow') !== '1') nature.trees.forEach((g) => g.traverse((o) => natureMeshes.add(o)));
   world.traverse((o) => {
@@ -148,14 +155,14 @@ async function fetchGlb(url) {
   return out.buffer;
 }
 function loadModel(name) {
-  const url = name.startsWith('fab/') ? `assets/models/${name}.json` : `assets/models/${name}/${name}.json`;
+  const url = /^(fab|ph|lib)\//.test(name) ? `assets/models/${name}.json` : `assets/models/${name}/${name}.json`;
   modelCache[name] ||= fetchGlb(url).then((glb) => new Promise((ok, ko) => gltf.parse(glb, url.slice(0, url.lastIndexOf('/') + 1), (g) => ok(g.scene), ko)));
   modelCache[name].catch((e) => console.error('modello', name, e));
   return modelCache[name];
 }
 const PLANT_PICK = ['potted_plant_02', 'potted_plant_04', 'potted_plant_02'];
 function placePlants(spots) {
-  spots.forEach(([x, z, h], i) => loadModel(PLANT_PICK[i % PLANT_PICK.length]).then((src) => {
+  spots.forEach(([x, z, h], i) => { const id = nextId('plant'); loadModel(PLANT_PICK[i % PLANT_PICK.length]).then((src) => {
     const m = src.clone(true);
     const box = new THREE.Box3().setFromObject(m);
     const s = h / (box.max.y - box.min.y);
@@ -163,8 +170,8 @@ function placePlants(spots) {
     m.position.set(x, -box.min.y * s, z);
     m.rotation.y = i * 2.1;
     m.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-    world.add(m);
-  }));
+    addMovable(m, id, 'plant');
+  }); });
 }
 
 // arredi da Fab (fab.com): file, scala, rotazione aggiuntiva; i modelli vengono centrati in pianta
@@ -187,6 +194,7 @@ function fabPlace(kind, x, z, rot = 0, y = 0) {
 function placeModels() {
   for (const [kind, x, z, rot, y] of fabItems.splice(0)) {
     const spec = FAB_KIND[kind];
+    const id = nextId(kind);
     loadModel(spec.file).then((src) => {
       const m = src.clone(true);
       const k = spec.k;
@@ -196,10 +204,336 @@ function placeModels() {
       const box = new THREE.Box3().setFromObject(m);
       m.position.set(x - (box.min.x + box.max.x) / 2, y - box.min.y, z - (box.min.z + box.max.z) / 2);
       m.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-      world.add(m);
+      addMovable(m, id, kind);
     });
   }
 }
+
+// giardino del mockup: ulivi, lentisco/sommacco e graminacee di Poly Haven (CC0).
+// Ogni file ha più varianti come nodi separati: ne scelgo una per pianta.
+const OUTDOOR = {
+  olive: { file: 'ph/island_tree_01', alt: 'ph/island_tree_02', h: (s) => s },
+  shrub: { file: 'ph/searsia_lucida', nodes: 'abcdefg'.split('').map((c) => `searsia_lucida_${c}_LOD0`), h: (s) => s * 1.7 },
+  grass: { file: 'ph/grass_medium_01', nodes: ['tall_a', 'tall_b', 'tall_c', 'large_a', 'large_b', 'large_c'].map((c) => `grass_medium_01_${c}_LOD0`), h: (s) => s * 0.75 },
+};
+const outdoorItems = [];
+function outdoorPlace(kind, x, z, s, seed) {
+  if (!OUTDOOR[kind]) return false;
+  outdoorItems.push([kind, x, z, s, seed]);
+  return true;
+}
+function placeOutdoor() {
+  const treeShadow = params.get('treeshadow') === '1';
+  for (const [kind, x, z, s, seed] of outdoorItems.splice(0)) {
+    const spec = OUTDOOR[kind];
+    const r = typeof seed === 'number' && seed < 1 ? seed : (seed * 0.618) % 1;
+    const file = spec.alt && Math.floor(seed) % 2 ? spec.alt : spec.file;
+    const id = nextId(kind);
+    loadModel(file).then((src) => {
+      let m;
+      if (spec.nodes) {
+        const name = spec.nodes[Math.floor(r * spec.nodes.length) % spec.nodes.length];
+        m = src.getObjectByName(name).clone(true);
+        m.position.set(0, 0, 0);
+      } else m = src.clone(true);
+      const g = new THREE.Group();
+      g.add(m);
+      g.rotation.y = r * Math.PI * 2;
+      g.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(g);
+      const k = spec.h(s) / (box.max.y - box.min.y);
+      g.scale.setScalar(k);
+      g.updateMatrixWorld(true);
+      box.setFromObject(g);
+      g.position.set(x - (box.min.x + box.max.x) / 2, -0.04 - box.min.y, z - (box.min.z + box.max.z) / 2);
+      g.traverse((o) => {
+        if (!o.isMesh) return;
+        o.castShadow = kind !== 'olive' || treeShadow;
+        o.receiveShadow = true;
+        // foglie in BLEND: meglio un ritaglio netto, così fanno ombra e non sfarfallano
+        if (o.material.transparent) Object.assign(o.material, { transparent: false, alphaTest: 0.45, depthWrite: true, side: THREE.DoubleSide });
+        // foglie d'ulivo: meno giallo, più grigio-argento
+        if (kind === 'olive' && /leaves/.test(o.material.name)) o.material.color.set('#c4cbb4');
+      });
+      addMovable(g, id, kind);
+    });
+  }
+}
+
+// ---------------------------------------------------------------- modifica arredi
+// Ogni modello caricato sta in un gruppo con il perno al centro della base:
+// si sposta sul pavimento, ruota sul suo asse e si ridimensiona in proporzione.
+// Le modifiche restano nel browser di chi le fa (localStorage).
+const NAMES = {
+  sofa: 'Divano', tv: 'TV', chair: 'Sedia', tap: 'Rubinetto', snake: 'Sansevieria', cereus: 'Cactus',
+  pothos: 'Pothos', aloe: 'Agave', plant: 'Pianta', olive: 'Ulivo', shrub: 'Cespuglio', grass: 'Erba',
+};
+const SAVE_KEY = 'villa-mockup-arredi';
+let saved = {};
+try { saved = JSON.parse(localStorage.getItem(SAVE_KEY) || '{}'); } catch { saved = {}; }
+const movables = [];
+const counters = {};
+function nextId(kind) {
+  counters[kind] = (counters[kind] || 0) + 1;
+  return `${kind}:${counters[kind]}`;
+}
+// at: dove mettere il centro della base (per gli elementi presi dalla libreria)
+function addMovable(m, id, kind, at = null) {
+  m.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(m);
+  const c = box.getCenter(new THREE.Vector3());
+  const g = new THREE.Group();
+  g.position.set(c.x, box.min.y, c.z);
+  m.position.sub(g.position);
+  g.add(m);
+  if (at) g.position.fromArray(at);
+  g.userData = { id, kind, home: g.position.toArray() };
+  const st = saved[id];
+  if (st?.p) { g.position.fromArray(st.p); g.rotation.y = st.r; g.scale.setScalar(st.s); }
+  if (st?.hidden) g.visible = false;
+  world.add(g);
+  movables.push(g);
+  return g;
+}
+function persist() {
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(saved)); } catch { /* niente salvataggio */ }
+}
+function remember(g) {
+  saved[g.userData.id] = { ...saved[g.userData.id], p: g.position.toArray().map((v) => +v.toFixed(3)), r: +g.rotation.y.toFixed(4), s: +g.scale.x.toFixed(3) };
+  persist();
+}
+
+const tc = new TransformControls(camera, renderer.domElement);
+tc.setSpace('world');
+tc.setSize(0.9);
+tc.setRotationSnap(THREE.MathUtils.degToRad(5));
+scene.add(tc.getHelper());
+let editing = false, scale0 = 1;
+tc.addEventListener('dragging-changed', (e) => {
+  controls.enabled = !e.value;
+  if (e.value) scale0 = tc.object.scale.x;
+  else if (tc.object) { remember(tc.object); showSel(); }
+});
+tc.addEventListener('objectChange', () => {
+  const o = tc.object;
+  if (!o) return;
+  if (tc.mode === 'scale') {
+    // ridimensiono sempre in proporzione: vale l'asse che si è mosso di più
+    const v = [o.scale.x, o.scale.y, o.scale.z].reduce((a, b) => (Math.abs(b - scale0) > Math.abs(a - scale0) ? b : a));
+    o.scale.setScalar(THREE.MathUtils.clamp(v, 0.3, 3));
+  }
+  if (tc.mode === 'rotate') { o.rotation.x = 0; o.rotation.z = 0; }
+  showSel();
+});
+function setMode(m) {
+  tc.setMode(m);
+  tc.showX = m !== 'rotate';
+  tc.showZ = m !== 'rotate';
+  tc.showY = m !== 'translate';
+  tc.setSpace(m === 'scale' ? 'local' : 'world');
+  document.querySelectorAll('[data-tm]').forEach((b) => b.classList.toggle('on', b.dataset.tm === m));
+}
+setMode('translate');
+const selEl = document.getElementById('sel');
+function showSel() {
+  const o = tc.object;
+  if (!o) { selEl.textContent = 'Clicca un arredo o una pianta per selezionarlo.'; return; }
+  const sz = new THREE.Box3().setFromObject(o).getSize(new THREE.Vector3());
+  const cm = (v) => Math.round(v * 100);
+  const deg = Math.round(THREE.MathUtils.radToDeg(o.rotation.y) % 360);
+  selEl.textContent = `${o.userData.label || NAMES[o.userData.kind] || o.userData.kind}: ${cm(sz.x)} × ${cm(sz.z)} cm, alto ${cm(sz.y)} cm · ruotato ${deg}° · scala ${Math.round(o.scale.x * 100)}%`;
+}
+function selectObj(o) {
+  if (o) tc.attach(o); else tc.detach();
+  if (selEl) showSel();
+}
+function setEditing(on) {
+  editing = on;
+  document.body.classList.toggle('editing', on);
+  document.getElementById('edit').classList.toggle('on', on);
+  if (!on) selectObj(null);
+}
+document.getElementById('edit').addEventListener('click', () => setEditing(!editing));
+document.querySelectorAll('[data-tm]').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.tm)));
+document.getElementById('resetOne').addEventListener('click', () => {
+  const o = tc.object;
+  if (!o) return;
+  o.position.fromArray(o.userData.home); o.rotation.set(0, 0, 0); o.scale.setScalar(1);
+  delete saved[o.userData.id];
+  persist();
+  showSel();
+});
+document.getElementById('resetAll').addEventListener('click', () => {
+  saved = {};
+  persist();
+  selectObj(null);
+  for (const o of [...movables]) {
+    if (o.userData.lib) { removeMovable(o); continue; }
+    o.position.fromArray(o.userData.home); o.rotation.set(0, 0, 0); o.scale.setScalar(1); o.visible = true;
+  }
+  showSel();
+});
+function removeMovable(o) {
+  world.remove(o);
+  movables.splice(movables.indexOf(o), 1);
+}
+document.getElementById('remove').addEventListener('click', () => {
+  const o = tc.object;
+  if (!o) return;
+  selectObj(null);
+  if (o.userData.lib) {
+    saved.added = (saved.added || []).filter((a) => a.id !== o.userData.id);
+    delete saved[o.userData.id];
+    removeMovable(o);
+  } else {
+    o.visible = false;
+    saved[o.userData.id] = { ...saved[o.userData.id], hidden: true };
+  }
+  persist();
+});
+
+// ---------------------------------------------------------------- libreria
+// Tutto quello che è stato scaricato, da inserire dove si sta guardando.
+// nodes: le parti da prendere da una scena intera; k: scala; h: altezza voluta.
+const LIV = (...n) => n.map((x) => `i2stay00${x}`);
+const LIBRARY = {
+  Soggiorno: {
+    divanoL: { label: 'Divano a L', file: 'fab/lshapedsofa', k: 0.66, mirror: true },
+    divanoWabi: { label: 'Divano wabi-sabi', file: 'lib/living', nodes: LIV(41, 42, 43, 44, 45, 46, 47) },
+    tavolinoWabi: { label: 'Tavolino tondo', file: 'lib/living', nodes: LIV(52, 53, 57, 58, 60, 62, 63) },
+    tappetoWabi: { label: 'Tappeto grande', file: 'lib/living', nodes: LIV(38) },
+    sfera: { label: 'Lampada a sfera', file: 'lib/living', nodes: LIV(49, 50), keepY: true },
+    rami: { label: 'Rami in vaso', file: 'lib/living', nodes: LIV(29, 30, 31, 32, 33, 34, 35, 36, 37) },
+    tv: { label: 'TV', file: 'fab/tv', k: 1, rot: -Math.PI / 2 },
+  },
+  'Cucina e pranzo': {
+    sedia: { label: 'Sedia imbottita', file: 'fab/diningchair', k: 1.05 },
+    cucina: { label: 'Cucina compatta', file: 'lib/kitchen' },
+    rubinetto: { label: 'Rubinetto', file: 'fab/tap', k: 0.01, y: 0.92 },
+  },
+  Camera: {
+    letto: { label: 'Letto', file: 'lib/bedroom', nodes: ['Cube.007'] },
+    comodino: { label: 'Comodino', file: 'lib/bedroom', nodes: ['Cube.003'] },
+    madia: { label: 'Panca contenitore', file: 'lib/bedroom', nodes: ['Cube.011'] },
+    tende: { label: 'Tende', file: 'lib/bedroom', nodes: ['3 panel curtains'] },
+    plafoniera: { label: 'Lampada a soffitto', file: 'lib/bedroom', nodes: ['Cylinder.003'], keepY: true },
+    applique: { label: 'Applique', file: 'lib/bedroom', nodes: ['Cylinder.002'], keepY: true },
+    lampada: { label: 'Lampada da tavolo', file: 'lib/bedroom', nodes: ['Floor Lamp Table'] },
+    tappetoTondo: { label: 'Tappeto tondo', file: 'lib/bedroom', nodes: ['Contemporary Round Niwa carpet'] },
+    tappetoBeige: { label: 'Tappeto beige', file: 'lib/bedroom', nodes: ['Pearl Beige Carpet'] },
+  },
+  Bagno: {
+    wc: { label: 'WC', file: 'fab/toilet', h: 0.85 },
+  },
+  Piante: {
+    sansevieria: { label: 'Sansevieria', file: 'fab/snake', k: 0.85 },
+    cactus: { label: 'Cactus', file: 'fab/cereus', k: 1.2 },
+    pothos: { label: 'Pothos', file: 'fab/pothos', k: 0.75 },
+    agave: { label: 'Agave', file: 'fab/aloe', k: 1.3 },
+    monstera: { label: 'Monstera piccola', file: 'lib/bedroom', nodes: ['Small Monstera plant'] },
+    vaso: { label: 'Pianta in vaso', file: 'potted_plant_02', h: 1.1 },
+    vaso2: { label: 'Pianta in vaso alta', file: 'potted_plant_04', h: 1.5 },
+    ulivo: { label: 'Ulivo', file: 'ph/island_tree_01', h: 4.6 },
+    ulivo2: { label: 'Ulivo basso', file: 'ph/island_tree_02', h: 3.6 },
+    cespuglio: { label: 'Cespuglio', file: 'ph/searsia_lucida', nodes: ['searsia_lucida_b_LOD0'], h: 1.3 },
+    erba: { label: 'Ciuffo d\'erba', file: 'ph/grass_medium_01', nodes: ['grass_medium_01_tall_a_LOD0'], h: 0.7 },
+  },
+};
+const LIB = Object.fromEntries(Object.values(LIBRARY).flatMap((g) => Object.entries(g)));
+
+async function libObject(spec) {
+  const src = await loadModel(spec.file);
+  src.updateMatrixWorld(true);
+  const m = new THREE.Group();
+  if (spec.nodes) {
+    for (const name of spec.nodes) {
+      const n = src.getObjectByName(THREE.PropertyBinding.sanitizeNodeName(name));
+      if (!n) continue;
+      const c = n.clone(true);
+      n.matrixWorld.decompose(c.position, c.quaternion, c.scale);
+      m.add(c);
+    }
+  } else m.add(src.clone(true));
+  const k = spec.k || 1;
+  m.scale.set(spec.mirror ? -k : k, k, k);
+  m.rotation.y = spec.rot || 0;
+  if (spec.h) {
+    m.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(m);
+    m.scale.multiplyScalar(spec.h / (box.max.y - box.min.y));
+  }
+  m.traverse((o) => {
+    if (!o.isMesh) return;
+    o.castShadow = true;
+    o.receiveShadow = true;
+    if (o.material.transparent) Object.assign(o.material, { transparent: false, alphaTest: 0.45, depthWrite: true, side: THREE.DoubleSide });
+  });
+  return m;
+}
+async function addFromLibrary(key, id, at) {
+  const spec = LIB[key];
+  const m = await libObject(spec);
+  if (!at) {
+    m.updateMatrixWorld(true);
+    const y = spec.keepY ? new THREE.Box3().setFromObject(m).min.y : spec.y || 0;
+    // a due metri e mezzo davanti a chi guarda
+    const f = new THREE.Vector3();
+    camera.getWorldDirection(f);
+    f.y = 0;
+    f.normalize();
+    at = [camera.position.x + f.x * 2.5, y, camera.position.z + f.z * 2.5];
+  }
+  const g = addMovable(m, id, key, at);
+  g.userData.lib = key;
+  g.userData.label = spec.label;
+  return g;
+}
+function restoreAdded() {
+  for (const a of saved.added || []) if (LIB[a.lib]) addFromLibrary(a.lib, a.id, a.at);
+}
+const libEl = document.getElementById('library');
+for (const [group, items] of Object.entries(LIBRARY)) {
+  const h = document.createElement('p');
+  h.className = 'libhead';
+  h.textContent = group;
+  const row = document.createElement('div');
+  row.className = 'row lib';
+  for (const [key, spec] of Object.entries(items)) {
+    const b = document.createElement('button');
+    b.textContent = spec.label;
+    b.addEventListener('click', async () => {
+      b.disabled = true;
+      const id = `lib:${key}:${Date.now().toString(36)}`;
+      const g = await addFromLibrary(key, id);
+      b.disabled = false;
+      saved.added = [...(saved.added || []), { lib: key, id, at: g.userData.home }];
+      remember(g);
+      selectObj(g);
+    });
+    row.append(b);
+  }
+  libEl.append(h, row);
+}
+const ray = new THREE.Raycaster();
+let down = null;
+canvas.addEventListener('pointerdown', (e) => { down = editing && tc.axis === null ? [e.clientX, e.clientY] : null; });
+canvas.addEventListener('pointerup', (e) => {
+  if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) return;
+  ray.setFromCamera(new THREE.Vector2((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1), camera);
+  // il primo oggetto colpito, così non si seleziona un mobile dietro un muro
+  const hit = ray.intersectObjects(world.children, true).find((h) => h.object.isMesh && h.object.visible && h.object.material.name !== 'glass');
+  let o = hit?.object;
+  while (o && !movables.includes(o)) o = o.parent;
+  selectObj(o || null);
+});
+addEventListener('keydown', (e) => {
+  if (!editing) return;
+  const k = e.key.toLowerCase();
+  if (k === 'g' || k === 'w') setMode('translate');
+  else if (k === 'r' || k === 'e') setMode('rotate');
+  else if (k === 's') setMode('scale');
+  else if (k === 'escape') selectObj(null);
+});
 
 function applyLook(hq) {
   renderer.toneMapping = hq ? THREE.NeutralToneMapping : THREE.ACESFilmicToneMapping;
@@ -236,6 +570,7 @@ const VIEWS = {
   cucina: { pos: [5.4, 1.55, 17.2], tgt: [10.8, 0.95, 19.6], fov: 62 },
   divano: { pos: [1.4, 1.45, 19.8], tgt: [5.2, 0.6, 15.8], fov: 60 },
   pietra: { pos: [4.2, 1.45, 18.6], tgt: [0.5, 1.3, 16.6], fov: 55 },
+  giardino: { pos: [4.2, 1.8, 32.4], tgt: [11, 1.7, 25], fov: 60 },
 };
 const camP = params.get('cam')?.split(',').map(Number);
 if (camP) VIEWS.custom = { pos: camP.slice(0, 3), tgt: camP.slice(3, 6), fov: 60 };
@@ -289,4 +624,4 @@ renderer.setAnimationLoop(() => {
   composer.render();
   frames++;
 });
-window.__mock = { setView, get frames() { return frames; }, setQuality: (q) => { quality = q; build(); } };
+window.__mock = { setView, movables, select: selectObj, setEditing, get frames() { return frames; }, setQuality: (q) => { quality = q; build(); } };

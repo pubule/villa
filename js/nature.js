@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Batch } from './builder.js';
 
 // Giardino: prato del lotto, muretti a secco sul confine, ghiaia, ulivi,
@@ -18,8 +19,15 @@ export const TREES = [
   { x: 12.8, z: 30.0, r: 2.3, h: 4.2 },
 ];
 
-export function buildNature(variant, materials, parent) {
+// opts.place(kind, x, z, size, seed): se restituisce true la pianta è un modello
+// glTF messo da chi chiama (ulivi, cespugli, erbe del mockup); opts.lavender3d
+// disegna la lavanda con steli e spighe vere invece dei cartoncini
+export function buildNature(variant, materials, parent, opts = {}) {
   const b = new Batch(materials);
+  const place = (kind, x, z, s, seed) => !!opts.place?.(kind, x, z, s, seed);
+  const lavender = opts.lavender3d ? lavender3d : lavenderCards;
+  const shrub = (b, x, z, r, rnd) => place('shrub', x, z, r, rnd()) || shrubCards(b, x, z, r, rnd);
+  const grasses = (b, x, z, s, rnd) => place('grass', x, z, s, rnd()) || grassCards(b, x, z, s, rnd);
   const lot = variant.lot;
 
   // prato del lotto (faccia verso l'alto)
@@ -90,6 +98,7 @@ export function buildNature(variant, materials, parent) {
   // ulivi: ognuno nel suo gruppo, così possono "crescere" dalla pianta
   const trees = [];
   for (const [i, t] of TREES.entries()) {
+    if (place('olive', t.x, t.z, t.h, i)) continue;
     const tb = new Batch(materials);
     olive(tb, { ...t, x: 0, z: 0 }, rand(100 + i));
     const g = new THREE.Group();
@@ -176,7 +185,7 @@ function gnarl(b, pts, r0, r1, rnd) {
 }
 
 // cespuglio di lavanda: cuscino basso e tre cartoncini incrociati di spighe
-function lavender(b, x, z, s, rnd) {
+function lavenderCards(b, x, z, s, rnd) {
   const m = new THREE.IcosahedronGeometry(0.28 * s, 1);
   m.scale(1, 0.55, 1);
   m.translate(x, 0.08 * s, z);
@@ -190,7 +199,7 @@ function lavender(b, x, z, s, rnd) {
   }
 }
 
-function grasses(b, x, z, s, rnd) {
+function grassCards(b, x, z, s, rnd) {
   for (let k = 0; k < 3; k++) {
     const g = new THREE.PlaneGeometry(0.9 * s, 0.95 * s);
     g.translate(0, 0.47 * s, 0);
@@ -201,7 +210,7 @@ function grasses(b, x, z, s, rnd) {
 }
 
 // cespuglio sempreverde (pittosforo, mirto): forma morbida e qualche rametto
-function shrub(b, x, z, r, rnd) {
+function shrubCards(b, x, z, r, rnd) {
   const m = new THREE.IcosahedronGeometry(r * 0.8, 2);
   m.scale(1.15, 0.8, 1);
   const p = m.attributes.position;
@@ -219,4 +228,62 @@ function shrub(b, x, z, r, rnd) {
     g.translate(x + (rnd() - 0.5) * r * 1.6, r * (0.5 + rnd() * 0.8), z + (rnd() - 0.5) * r * 1.6);
     b.geometry(g, 'leavesOlive|1', { ownUV: true });
   }
+}
+
+// lavanda in 3D: un cuscino di foglie sottili grigio-verdi e decine di steli
+// dritti con la spiga a verticilli viola. Pochi prototipi, ruotati e scalati.
+const LAV_PROTO = [];
+function lavenderProto(seed) {
+  const rnd = rand(seed);
+  const leaf = [], stem = [], flower = [];
+  const up = new THREE.Vector3(0, 1, 0);
+  for (let i = 0; i < 140; i++) {
+    const a = rnd() * Math.PI * 2, r = Math.sqrt(rnd()) * 0.22;
+    const len = 0.1 + rnd() * 0.09;
+    const g = new THREE.PlaneGeometry(0.012, len);
+    g.translate(0, len / 2, 0);
+    g.rotateX(0.35 + (r / 0.22) * 0.9 + rnd() * 0.3);
+    g.rotateY(-a + Math.PI / 2);
+    g.translate(Math.cos(a) * r * 0.6, 0.02 + (1 - r / 0.22) * 0.1, Math.sin(a) * r * 0.6);
+    leaf.push(g);
+  }
+  for (let i = 0; i < 48; i++) {
+    const a = rnd() * Math.PI * 2, r = Math.sqrt(rnd()) * 0.12;
+    const base = new THREE.Vector3(Math.cos(a) * r, 0.1, Math.sin(a) * r);
+    const lean = 0.18 + (r / 0.12) * 0.35 + rnd() * 0.1;
+    const h = 0.3 + rnd() * 0.16;
+    const top = base.clone().add(new THREE.Vector3(Math.cos(a) * lean * h, h, Math.sin(a) * lean * h));
+    const dir = top.clone().sub(base);
+    const L = dir.length();
+    dir.normalize();
+    const q = new THREE.Quaternion().setFromUnitVectors(up, dir);
+    const c = new THREE.CylinderGeometry(0.0025, 0.0035, L, 3, 1);
+    c.translate(0, L / 2, 0);
+    c.applyQuaternion(q);
+    c.translate(base.x, base.y, base.z);
+    stem.push(c);
+    // spiga: 6 verticilli di boccioli, più piccoli verso la punta
+    const sl = 0.06 + rnd() * 0.04;
+    for (let k = 0; k < 6; k++) {
+      const u = k / 5;
+      const f = new THREE.IcosahedronGeometry(0.011 * (1 - u * 0.45), 0);
+      f.scale(1, 1.5, 1);
+      f.rotateY(rnd() * 3);
+      const p = top.clone().addScaledVector(dir, -sl + u * sl);
+      f.translate(p.x, p.y, p.z);
+      flower.push(f);
+    }
+  }
+  const merge = (list) => mergeGeometries(list.map((g) => (g.index ? g.toNonIndexed() : g)));
+  return { leaf: merge(leaf), stem: merge(stem), flower: merge(flower) };
+}
+function lavender3d(b, x, z, s, rnd) {
+  if (!LAV_PROTO.length) for (let i = 0; i < 4; i++) LAV_PROTO.push(lavenderProto(31 + i));
+  const p = LAV_PROTO[Math.floor(rnd() * LAV_PROTO.length)];
+  const m = new THREE.Matrix4().compose(new THREE.Vector3(x, -0.04, z),
+    new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rnd() * Math.PI * 2),
+    new THREE.Vector3(s * 1.15, s * (1.05 + rnd() * 0.2), s * 1.15));
+  b.geometry(p.leaf.clone().applyMatrix4(m), 'lavLeaf|1');
+  b.geometry(p.stem.clone().applyMatrix4(m), 'lavStem|1');
+  b.geometry(p.flower.clone().applyMatrix4(m), 'lavFlower|1');
 }

@@ -35,6 +35,16 @@
     button.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
     ul { margin: 12px 0 0; padding-left: 18px; font-size: 0.86rem; line-height: 1.45; }
     li { margin: 2px 0; }
+    #editbar { display: none; }
+    .panel { max-height: calc(100vh - 32px); overflow-y: auto; }
+    .libbox { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 8px; }
+    .libbox summary { cursor: pointer; font-size: 0.8rem; font-weight: 500; }
+    .libhead { font-family: "Geist Mono", monospace; font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--soft); margin: 10px 0 0; }
+    .row.lib { margin-top: 4px; gap: 4px; }
+    .row.lib button { padding: 5px 9px; font-size: 0.62rem; }
+    button:disabled { opacity: 0.5; cursor: wait; }
+    body.editing #editbar { display: block; }
+    body.editing #notes { display: none; }
     .hint.credits { font-size: 0.65rem; margin-top: 6px; }
     .hint { font-size: 0.75rem; color: var(--soft); margin: 10px 0 0; }
     .loader { position: fixed; inset: 0; display: grid; place-items: center; background: var(--paper); font-family: "Geist Mono", monospace; font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; transition: opacity 0.6s; }
@@ -53,10 +63,30 @@
       <button data-view="divano">Divano</button>
       <button data-view="cucina">Cucina</button>
       <button data-view="pietra">Parete in pietra</button>
+      <button data-view="giardino">Giardino</button>
     </div>
     <div class="row" role="group" aria-label="Qualità">
       <button data-q="prima">Com'è ora</button>
       <button data-q="dopo" class="on">Con le modifiche</button>
+    </div>
+    <div class="row"><button id="edit">Modifica arredi</button></div>
+    <div id="editbar">
+      <p class="hint" id="sel">Clicca un arredo o una pianta per selezionarlo.</p>
+      <div class="row" role="group" aria-label="Strumento">
+        <button data-tm="translate" class="on">Sposta</button>
+        <button data-tm="rotate">Ruota</button>
+        <button data-tm="scale">Ridimensiona</button>
+      </div>
+      <div class="row">
+        <button id="resetOne">Rimetti a posto</button>
+        <button id="remove">Togli</button>
+        <button id="resetAll">Ripristina tutto</button>
+      </div>
+      <details class="libbox" open>
+        <summary>Libreria: aggiungi davanti a te</summary>
+        <div id="library"></div>
+      </details>
+      <p class="hint">Tasti: G sposta, R ruota, S ridimensiona, Esc deseleziona. Le modifiche restano salvate in questo browser.</p>
     </div>
     <ul id="notes">
       <li>Sole del pomeriggio da sud con ombre nette: le lamelle del pergolato disegnano righe di luce sul pavimento.</li>
@@ -65,9 +95,11 @@
       <li>Arredi con il triplo delle suddivisioni: spigoli e cuscini morbidi, niente sfaccettature.</li>
       <li>In salotto la stessa pietra R06A delle facciate.</li>
       <li>Divano, sedie, TV, rubinetto e piante: modelli 3D veri da Fab e Poly Haven, compressi per il web.</li>
+      <li>Giardino: ulivi e cespugli veri da Poly Haven, lavanda modellata stelo per stelo invece dei cartoncini piatti.</li>
+      <li>"Modifica arredi": clicca un mobile per spostarlo, ruotarlo o ridimensionarlo, e aggiungi pezzi dalla libreria.</li>
     </ul>
     <p class="hint">Trascina per guardarti intorno, rotella per avvicinarti.</p>
-    <p class="hint credits">Modelli: SaretiX, Keonix, sixonetwo, AllQuad, Helindu.Art (Fab; CC BY 4.0 dove indicato); Poly Haven (CC0).</p>
+    <p class="hint credits">Modelli: SaretiX, Keonix, sixonetwo, AllQuad, Helindu.Art, Osian3D, 3dShowdown, Y-3D, Mint Studio (Fab; CC BY 4.0 dove indicato); Poly Haven (CC0).</p>
   </section>
   <script type="module" src="js/mockup.js"></script>
 </body>
