@@ -154,14 +154,14 @@ export function pottedPlant(b, x, z, { h = 1.6, r = 0.26, pot = 'terracotta|0', 
 // ---------------------------------------------------------------- cucina e pranzo
 
 // isola o banco monolitico in pietra; sink: lavello con rubinetto
-export function stoneBlock(b, x0, z0, x1, z1, h = 0.92, { sink = null } = {}) {
+export function stoneBlock(b, x0, z0, x1, z1, h = 0.92, { sink = null, faucet = true } = {}) {
   const p = P(b, 0, 0, 0);
   p.rbox(x0, 0, z0, x1, h, z1, 0.015, 'travStone|0');
   if (sink) {
     const [sx, sz] = sink;
     p.box(sx - 0.3, h - 0.004, sz - 0.2, sx + 0.3, h + 0.001, sz + 0.2, 'metal|0', { outline: false });
-    p.cyl(sx, h, sz - 0.26, 0.018, 0.018, h + 0.32, 'chrome|0', 12);
-    p.tube([[sx, h + 0.32, sz - 0.26], [sx, h + 0.4, sz - 0.18], [sx, h + 0.3, sz - 0.05]], 0.012, 'chrome|0', 12);
+    if (faucet) p.cyl(sx, h, sz - 0.26, 0.018, 0.018, h + 0.32, 'chrome|0', 12);
+    if (faucet) p.tube([[sx, h + 0.32, sz - 0.26], [sx, h + 0.4, sz - 0.18], [sx, h + 0.3, sz - 0.05]], 0.012, 'chrome|0', 12);
   }
   return p;
 }

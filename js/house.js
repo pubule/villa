@@ -210,7 +210,9 @@ function furnish(b, v, opts = {}) {
     b.box(SW[0], 0, 14.973, SW[1], H - 0.01, 20.074, feature, { lines: 'f' });
   }
   F.slatConsole(b, SW[1], 18.0, Math.PI / 2, 2.4);
-  F.tv(b, SW[1] + 0.02, 16.8, Math.PI / 2);
+  // opts.place(tipo, x, z, rot, y): true se l'oggetto lo mette chi chiama (modello glTF)
+  const place = (kind, x, z, rot, y = 0) => !!opts.place?.(kind, x, z, rot, y);
+  if (!place('tv', SW[1] + 0.21, 16.8, Math.PI / 2, 0.56)) F.tv(b, SW[1] + 0.02, 16.8, Math.PI / 2);
   // divano modulare bianco a L, rivolto verso la TV
   const sz = A ? 0 : -0.1;
   // opts.modelSofa: il divano lo mette chi chiama (modello glTF)
@@ -237,7 +239,7 @@ function furnish(b, v, opts = {}) {
   F.stoneBlock(b, cx, 17.135, 12.543, 20.87, 0.92, A ? {} : { sink: [cx + 0.38, 19.6] });
   b.box(cx + 0.06, 0.92, 17.6, 12.48, 0.926, 18.2, 'screen|0', { edges: false });
   if (A) {
-    F.stoneBlock(b, 10.0, 18.0, 10.88, 20.1, 0.92, { sink: [10.44, 19.2] });
+    F.stoneBlock(b, 10.0, 18.0, 10.88, 20.1, 0.92, { sink: [10.44, 19.2], faucet: !place('tap', 10.44, 18.94, Math.PI / 2, 0.92) });
   }
   plant(A ? 11.25 : 11.1, 20.45, { h: 1.8, r: 0.28, rnd });
 
@@ -249,7 +251,7 @@ function furnish(b, v, opts = {}) {
     for (let k = 0; k < 5; k++) {
       const a = Math.PI * 0.1 + (k / 5) * Math.PI * 2;
       const x = ox + Math.cos(a) * 0.86, z = oz + Math.sin(a) * 0.86;
-      F.woodChair(b, x, z, facing(x, z, ox, oz));
+      if (!place('chair', x, z, facing(x, z, ox, oz))) F.woodChair(b, x, z, facing(x, z, ox, oz));
     }
     lampPts = [[ox, oz]];
   } else {

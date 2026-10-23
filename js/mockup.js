@@ -98,9 +98,21 @@ function build() {
   const hq = quality === 'dopo';
   setQuality(hq ? 3 : 1);
   const plantSpots = hq ? [] : null;
-  const house = buildHouse(variant, materials, world, { featureStone: hq ? 'ashlar|0' : 'stoneIn|0', plantSpots, modelSofa: hq });
-  if (plantSpots) placePlants(plantSpots);
-  if (hq) placeModels();
+  const house = buildHouse(variant, materials, world, {
+    featureStone: hq ? 'ashlar|0' : 'stoneIn|0', plantSpots, modelSofa: hq, place: hq ? fabPlace : null,
+  });
+  if (hq) {
+    // divano a L: centro della pianta, rivolto verso la TV
+    fabPlace('sofa', 4.35, 16.7, -Math.PI / 2);
+    // piante: sansevieria vicino alla pietra, cactus in cucina, pothos sul mobile TV, agave sul portico
+    const [s0, s1, s2] = plantSpots;
+    fabPlace('snake', s0[0], s0[1]);
+    placePlants([s1]);
+    fabPlace('cereus', s2[0], s2[1]);
+    fabPlace('pothos', 0.71, 17.75, 0, 0.56);
+    fabPlace('aloe', 2.6, 21.7);
+    placeModels();
+  }
   house.roofGroup.position.y = 0;
   const nature = buildNature(variant, materials, world);
   nature.trees.forEach((g) => g.scale.setScalar(1));
@@ -136,20 +148,38 @@ function placePlants(spots) {
   }));
 }
 
-// arredi da Fab: [file, x, z, rotazione, specchiato, scala]
-const FAB = [
-  ['fab/lshapedsofa', 4.5, 16.75, -Math.PI / 2, true, 0.66],
-];
+// arredi da Fab (fab.com): file, scala, rotazione aggiuntiva; i modelli vengono centrati in pianta
+const FAB_KIND = {
+  sofa: { file: 'fab/lshapedsofa', k: 0.66, mirror: true },
+  tv: { file: 'fab/tv', k: 1, rot: -Math.PI / 2 },
+  chair: { file: 'fab/diningchair', k: 1.05, rot: 0 },
+  tap: { file: 'fab/tap', k: 0.01, rot: 0 },
+  snake: { file: 'fab/snake', k: 0.85 },
+  cereus: { file: 'fab/cereus', k: 1.2 },
+  pothos: { file: 'fab/pothos', k: 0.75 },
+  aloe: { file: 'fab/aloe', k: 1.3 },
+};
+const fabItems = [];
+function fabPlace(kind, x, z, rot = 0, y = 0) {
+  if (!FAB_KIND[kind]) return false;
+  fabItems.push([kind, x, z, rot, y]);
+  return true;
+}
 function placeModels() {
-  for (const [name, x, z, rot, mirror, k = 1] of FAB) loadModel(name).then((src) => {
-    const m = src.clone(true);
-    m.scale.set(mirror ? -k : k, k, k);
-    m.rotation.y = rot;
-    const box = new THREE.Box3().setFromObject(m);
-    m.position.set(x, -box.min.y, z);
-    m.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-    world.add(m);
-  });
+  for (const [kind, x, z, rot, y] of fabItems.splice(0)) {
+    const spec = FAB_KIND[kind];
+    loadModel(spec.file).then((src) => {
+      const m = src.clone(true);
+      const k = spec.k;
+      m.scale.set(spec.mirror ? -k : k, k, k);
+      m.rotation.y = rot + (spec.rot || 0);
+      m.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(m);
+      m.position.set(x - (box.min.x + box.max.x) / 2, y - box.min.y, z - (box.min.z + box.max.z) / 2);
+      m.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      world.add(m);
+    });
+  }
 }
 
 function applyLook(hq) {
