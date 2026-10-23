@@ -213,7 +213,7 @@ function setMode(m) {
   tc.setMode(m);
   tc.showX = m !== 'rotate';
   tc.showZ = m !== 'rotate';
-  tc.showY = m !== 'translate';
+  tc.showY = true;
   tc.setSpace(m === 'scale' ? 'local' : 'world');
   document.querySelectorAll('[data-tm]').forEach((b) => b.classList.toggle('on', b.dataset.tm === m));
 }
@@ -225,7 +225,7 @@ function showSel() {
   const sz = new THREE.Box3().setFromObject(o).getSize(new THREE.Vector3());
   const cm = (v) => Math.round(v * 100);
   const deg = Math.round(THREE.MathUtils.radToDeg(o.rotation.y) % 360);
-  selEl.textContent = `${o.userData.label || NAMES[o.userData.kind] || o.userData.kind}: ${cm(sz.x)} × ${cm(sz.z)} cm, alto ${cm(sz.y)} cm · ruotato ${deg}° · scala ${Math.round(o.scale.x * 100)}%`;
+  selEl.textContent = `${o.userData.label || NAMES[o.userData.kind] || o.userData.kind}: ${cm(sz.x)} × ${cm(sz.z)} cm, alto ${cm(sz.y)} cm · da terra ${cm(o.position.y)} cm · ruotato ${deg}° · scala ${Math.round(o.scale.x * 100)}%`;
 }
 function selectObj(o) {
   if (o) tc.attach(o); else tc.detach();
@@ -239,6 +239,15 @@ function setEditing(on) {
 }
 document.getElementById('edit').addEventListener('click', () => setEditing(!editing));
 document.querySelectorAll('[data-tm]').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.tm)));
+// altezza: a passi di 10 cm, o di nuovo appoggiato al pavimento
+document.querySelectorAll('[data-up]').forEach((b) => b.addEventListener('click', () => {
+  const o = tc.object;
+  if (!o) return;
+  const d = b.dataset.up;
+  o.position.y = d === '0' ? 0 : Math.round((o.position.y + Number(d)) * 100) / 100;
+  remember(o);
+  showSel();
+}));
 // rotazioni rapide: si sommano a quella attuale
 document.querySelectorAll('[data-rot]').forEach((b) => b.addEventListener('click', () => {
   const o = tc.object;
