@@ -396,6 +396,7 @@ document.getElementById('remove').addEventListener('click', () => {
 // Tutto quello che è stato scaricato, da inserire dove si sta guardando.
 // nodes: le parti da prendere da una scena intera; k: scala; h: altezza voluta.
 const LIV = (...n) => n.map((x) => `i2stay00${x}`);
+const GH = (...n) => n.map((x) => `mint${String(x).padStart(4, '0')}`);
 const LIBRARY = {
   Soggiorno: {
     divanoL: { label: 'Divano a L', file: 'fab/lshapedsofa', k: 0.66, mirror: true },
@@ -421,6 +422,16 @@ const LIBRARY = {
     lampada: { label: 'Lampada da tavolo', file: 'lib/bedroom', nodes: ['Floor Lamp Table'] },
     tappetoTondo: { label: 'Tappeto tondo', file: 'lib/bedroom', nodes: ['Contemporary Round Niwa carpet'] },
     tappetoBeige: { label: 'Tappeto beige', file: 'lib/bedroom', nodes: ['Pearl Beige Carpet'] },
+  },
+  'Guesthouse wabi-sabi': {
+    poltronaPaglia: { label: 'Poltrona in paglia', file: 'lib/guesthouse', nodes: GH(7, 8) },
+    sediaPaglia: { label: 'Sedia in paglia', file: 'lib/guesthouse', nodes: GH(158) },
+    poltronaBassa: { label: 'Poltrona bassa', file: 'lib/guesthouse', nodes: GH(10) },
+    sediaBianca: { label: 'Sedia chiara', file: 'lib/guesthouse', nodes: GH(82, 83) },
+    tavoloLungo: { label: 'Tavolo lungo', file: 'lib/guesthouse', nodes: GH(12, 14) },
+    tavolinoNero: { label: 'Tavolino nero', file: 'lib/guesthouse', nodes: GH(16, 17) },
+    tavolinoLegno: { label: 'Tavolino in legno', file: 'lib/guesthouse', nodes: GH(147, 148, 150, 151, 152, 153, 154) },
+    fioriera: { label: 'Fioriera', file: 'lib/guesthouse', nodes: GH(106, 107, 108, 109, 110, 111, 112, 113, 114) },
   },
   Bagno: {
     wc: { label: 'WC', file: 'fab/toilet', h: 0.85 },
