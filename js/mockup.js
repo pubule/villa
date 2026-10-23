@@ -11,7 +11,6 @@ import { buildHouse } from './house.js';
 import { buildNature } from './nature.js';
 import { setQuality } from './furniture.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
 // Mockup di qualità per salotto e cucina: stessa casa del sito, con luce,
 // ombre, occlusione ambientale e suddivisioni come proposte. "Com'è ora"
@@ -128,10 +127,30 @@ function build() {
 
 // piante e vasi veri da Poly Haven (CC0), scalati all'altezza prevista
 const gltf = new GLTFLoader(manager);
-gltf.setMeshoptDecoder(MeshoptDecoder);
 const modelCache = {};
+// i modelli sono glTF in .json con il buffer in base64: lo decodifico qui e passo
+// al loader un GLB, perché la pagina non può leggere URL data: né file .glb
+async function fetchGlb(url) {
+  const json = await (await fetch(url)).json();
+  const buf = json.buffers[0];
+  const bin = Uint8Array.from(atob(buf.uri.split(',')[1]), (c) => c.charCodeAt(0));
+  delete buf.uri;
+  buf.byteLength = bin.length;
+  const enc = new TextEncoder().encode(JSON.stringify(json));
+  const jsonLen = Math.ceil(enc.length / 4) * 4, binLen = Math.ceil(bin.length / 4) * 4;
+  const out = new Uint8Array(12 + 8 + jsonLen + 8 + binLen);
+  const dv = new DataView(out.buffer);
+  dv.setUint32(0, 0x46546c67, true); dv.setUint32(4, 2, true); dv.setUint32(8, out.length, true);
+  dv.setUint32(12, jsonLen, true); dv.setUint32(16, 0x4e4f534a, true);
+  out.fill(0x20, 20, 20 + jsonLen); out.set(enc, 20);
+  dv.setUint32(20 + jsonLen, binLen, true); dv.setUint32(24 + jsonLen, 0x004e4942, true);
+  out.set(bin, 28 + jsonLen);
+  return out.buffer;
+}
 function loadModel(name) {
-  modelCache[name] ||= new Promise((ok) => gltf.load(name.startsWith('fab/') ? `assets/models/${name}.json` : `assets/models/${name}/${name}.json`, (g) => ok(g.scene)));
+  const url = name.startsWith('fab/') ? `assets/models/${name}.json` : `assets/models/${name}/${name}.json`;
+  modelCache[name] ||= fetchGlb(url).then((glb) => new Promise((ok, ko) => gltf.parse(glb, url.slice(0, url.lastIndexOf('/') + 1), (g) => ok(g.scene), ko)));
+  modelCache[name].catch((e) => console.error('modello', name, e));
   return modelCache[name];
 }
 const PLANT_PICK = ['potted_plant_02', 'potted_plant_04', 'potted_plant_02'];
